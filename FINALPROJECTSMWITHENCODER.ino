@@ -3,7 +3,6 @@
 #include <Wire.h>
 #include <byte-sized-encoder-decoder.h>
 #include <Derivs_Limiter.h>
-#include <TimerOne.h>
 #include <Servo.h> // Added Servo library
 
 // Orient Code
@@ -188,6 +187,9 @@ State state = INIT;
 // volatile unsigned long global_timer1 = 0;  // Main match timer (2 min 10 sec)
 volatile unsigned long global_timer2 = 0;  // Launching timer (~1 min 30 sec)
 
+TimerInterrupt ITimer1;
+TimerInterrupt ITimer2;
+
 void timer1ISR() {
     // Stop all robot movement
     StopDrivePower();
@@ -199,7 +201,8 @@ void timer1ISR() {
     activateFan();
     
     // Optionally detach the interrupt since it only needs to fire once
-    Timer1.detachInterrupt();
+    // Timer1.detachInterrupt(); // Old way
+    ITimer1.detachInterrupt(); // New way using TimerInterrupt library
 }
 
 void timer2ISR() {
@@ -326,7 +329,7 @@ void orientToNorth() {
 // Motor Control Functions
 // ==============================
 
-
+bool positionReached = false;
 void ZeroEncoders() {
   bsed.resetEncoderPositions(); 
 }
@@ -476,10 +479,9 @@ void runStateMachine() {
     case DRIVE_DOWN:
       
       moveForward(POS_DRIVE_DOWN_X, POS_DRIVE_DOWN_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
         state = DRIVE_LEFT_INIT;
       }
       break;
@@ -487,11 +489,11 @@ void runStateMachine() {
     case DRIVE_LEFT_INIT:
     
       moveLeft(POS_DRIVE_LEFT_INIT_X, POS_DRIVE_LEFT_INIT_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      positionReached = WallAccelPosition(xTarget, yTarget);
 
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+
         state = MOVE_UP;
       }
       ZeroEncoders(); // SECOND ZERO ENCODER(OFFICIAL ZERO) 
@@ -500,11 +502,11 @@ void runStateMachine() {
     case MOVE_UP:
      
       moveForward(POS_MOVE_UP_X, POS_MOVE_UP_Y);
-      bool positionReached = AccelPosition(xTarget, yTarget);
+      positionReached = AccelPosition(xTarget, yTarget);
     
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+    
         state = DRIVE_RIGHT;
       }
       break;
@@ -512,11 +514,11 @@ void runStateMachine() {
     case DRIVE_RIGHT:
       
       moveRight(POS_DRIVE_RIGHT_X, POS_DRIVE_RIGHT_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      positionReached = WallAccelPosition(xTarget, yTarget);
       
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+      
         state = DRIVE_FORWARD;
       }
       break;
@@ -524,10 +526,10 @@ void runStateMachine() {
     case DRIVE_FORWARD:
      
       moveForward(POS_DRIVE_FORWARD_X, POS_DRIVE_FORWARD_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+  
         state = PUSH_POT;
       }
       break;
@@ -535,10 +537,10 @@ void runStateMachine() {
     case PUSH_POT:
      
       moveLeft(POS_PUSH_POT_X, POS_PUSH_POT_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+        
         state = DRIVE_DOWN_IGNITE;
       }
       break;
@@ -546,10 +548,10 @@ void runStateMachine() {
     case DRIVE_DOWN_IGNITE:
      
       moveBackward(POS_DRIVE_DOWN_IGNITE_X, POS_DRIVE_DOWN_IGNITE_Y);
-      bool positionReached = AccelPosition(xTarget, yTarget);
+      positionReached = AccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+    
         state = MOVE_TO_IGNITER;
       }
       break;
@@ -557,10 +559,10 @@ void runStateMachine() {
     case MOVE_TO_IGNITER:
      
       moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+  
         state = PRESS_IGNITER;
       }
       break;
@@ -568,17 +570,17 @@ void runStateMachine() {
     case PRESS_IGNITER:
       // Use the servo to press the igniter
       pressIgniter();
-      state_start_time = 0;
+    
       state = MOVE_RIGHT_BURNER;
       break;
 
     case MOVE_RIGHT_BURNER:
     
       moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
-      bool positionReached = AccelPosition(xTarget, yTarget);
+      positionReached = AccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+  
         state = MOVE_UP_BURNER;
       }
       break;
@@ -586,10 +588,10 @@ void runStateMachine() {
     case MOVE_UP_BURNER:
      
       moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+       
         state = DROP_BALL;
       }
       break;
@@ -597,17 +599,17 @@ void runStateMachine() {
     case DROP_BALL:
       // Use the servo to drop the ball
       dropBall();
-      state_start_time = 0;
+  
       state = MOVE_BACK;
       break;
 
     case MOVE_BACK:
      
       moveBackward(POS_MOVE_BACK_X, POS_MOVE_BACK_Y);
-      bool positionReached = AccelPosition(xTarget, yTarget);
+      positionReached = AccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+        
         state = MOVE_RIGHT_WALL;
       }
       break;
@@ -615,10 +617,10 @@ void runStateMachine() {
     case MOVE_RIGHT_WALL:
     
       moveRight(POS_MOVE_RIGHT_WALL_X, POS_MOVE_RIGHT_WALL_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+
         state = MOVE_DOWN_WALL;
       }
       break;
@@ -626,10 +628,10 @@ void runStateMachine() {
     case MOVE_DOWN_WALL:
      
       moveBackward(POS_MOVE_DOWN_WALL_X, POS_MOVE_DOWN_WALL_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+   
         state = START_LAUNCH;
       }
       break;
@@ -637,14 +639,14 @@ void runStateMachine() {
     case START_LAUNCH:
       // Simulate starting the launcher
       startLauncher();
-      state_start_time = 0;
+   
       state = LAUNCHING;
       break;
 
     case LAUNCHING:
       // Continue launching until timer expires
       if (global_timer2 >= 90) { // 90 seconds (1 min 30 sec)
-        state_start_time = 0;
+    
         state = STOP_LAUNCH;
       }
       break;
@@ -652,17 +654,17 @@ void runStateMachine() {
     case STOP_LAUNCH:
       // Stop the launcher
       stopLauncher();
-      state_start_time = 0;
+    
       state = MOVE_OUT_PANTRY;
       break;
 
     case MOVE_OUT_PANTRY:
      
       moveForward(POS_MOVE_OUT_PANTRY_X, POS_MOVE_OUT_PANTRY_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget); // still touching wall when moving out 
+      positionReached = WallAccelPosition(xTarget, yTarget); // still touching wall when moving out 
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+   
         state = MOVE_LEFT_WALL;
       }
       break;
@@ -670,10 +672,10 @@ void runStateMachine() {
     case MOVE_LEFT_WALL:
      
       moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget); 
+      positionReached = WallAccelPosition(xTarget, yTarget); 
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+       
         state = POSITION_UNDER_BURNER;
       }
       break;
@@ -681,10 +683,10 @@ void runStateMachine() {
     case POSITION_UNDER_BURNER:
     
       moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
-      bool positionReached = AccelPosition(xTarget, yTarget);
+      positionReached = AccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+       
         state = MOVE_TO_BURNER_WALL;
       }
       break;
@@ -692,10 +694,10 @@ void runStateMachine() {
     case MOVE_TO_BURNER_WALL:
     
       moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget); 
+      positionReached = WallAccelPosition(xTarget, yTarget); 
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+       
         state = MOVE_POT_TO_CUSTOMER;
       }
       break;
@@ -703,10 +705,10 @@ void runStateMachine() {
     case MOVE_POT_TO_CUSTOMER:
      
       moveRight(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y);
-      bool positionReached = WallAccelPosition(xTarget, yTarget); 
+      positionReached = WallAccelPosition(xTarget, yTarget); 
       if (positionReached) {
         StopDrivePower();
-        state_start_time = 0;
+      
         state = CELEBRATE;
       }
       break;
@@ -791,10 +793,18 @@ void setup() {
     // }
     // delay(1000); // Debounce delay
 
-    Timer1.initialize(130000000); // 2 minutes 10 seconds 
-    Timer2.initalize(1000); // 1 second
-    Timer1.attachInterrupt(timer1ISR);
-    Timer2.attachInterrupt(timer2ISR);
+    // With TimerInterrupt equivalents
+    ITimer1.init();
+    ITimer2.init();
+    // Set Timer1 to trigger every 2 minutes 10 seconds (130 seconds)
+    ITimer1.attachInterruptInterval(130000, timer1ISR); // time in milliseconds
+    // Set Timer2 to trigger every 1 second
+    ITimer2.attachInterruptInterval(1000, timer2ISR); // time in milliseconds
+
+    // Timer1.initialize(130000000); // 2 minutes 10 seconds 
+    // Timer2.initialize(1000); // 1 second
+    // Timer1.attachInterrupt(timer1ISR);
+    // Timer2.attachInterrupt(timer2ISR);
 }
 
 void loop() {
