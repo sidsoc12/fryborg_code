@@ -263,25 +263,25 @@ const int16_t POSITION_TOLERANCE = 31 / 2;     // 0.5 inch tolerance
 
 //MOVE FUNCTIONS
 
-void moveForward(int16_t x, int16_t y) {
-  xTarget = x;
-  yTarget = y;
-}
+// void moveForward(int16_t x, int16_t y) {
+//   xTarget = x;
+//   yTarget = y;
+// }
 
-void moveBackward(int16_t x, int16_t y) {
-  xTarget = x;
-  yTarget = y;
-}
+// void moveBackward(int16_t x, int16_t y) {
+//   xTarget = x;
+//   yTarget = y;
+// }
 
-void moveLeft(int16_t x, int16_t y) {
-  xTarget = x;
-  yTarget = y;
-}
+// void moveLeft(int16_t x, int16_t y) {
+//   xTarget = x;
+//   yTarget = y;
+// }
 
-void moveRight(int16_t x, int16_t y) {
-  xTarget = x;
-  yTarget = y;
-}
+// void moveRight(int16_t x, int16_t y) {
+//   xTarget = x;
+//   yTarget = y;
+// }
 
 // ==============================
 // Action Functions
@@ -465,11 +465,13 @@ void runStateMachine() {
 
   switch (state) {
     case INIT:
+      Serial.print("Starting init");
       ZeroEncoders();
       state = ORIENT_NORTH;
       break;
 
     case ORIENT_NORTH:
+      Serial.print("Starting orient");
       // Placeholder for orientation logic
       // delay(1000); // Simulate orientation
       ZeroEncoders(); // FIRST ZERO ENCODER
@@ -477,21 +479,21 @@ void runStateMachine() {
       break;
 
     case DRIVE_DOWN:
-      
-      moveForward(POS_DRIVE_DOWN_X, POS_DRIVE_DOWN_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      Serial.print("Starting drive down");
+      // moveForward(POS_DRIVE_DOWN_X, POS_DRIVE_DOWN_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget);
+      if (WallAccelPosition(POS_DRIVE_DOWN_X, POS_DRIVE_DOWN_Y)) {
         StopDrivePower();
         state = DRIVE_LEFT_INIT;
       }
       break;
 
     case DRIVE_LEFT_INIT:
-    
-      moveLeft(POS_DRIVE_LEFT_INIT_X, POS_DRIVE_LEFT_INIT_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget);
+      Serial.print("Starting drive left");
+      // moveLeft(POS_DRIVE_LEFT_INIT_X, POS_DRIVE_LEFT_INIT_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget);
 
-      if (positionReached) {
+      if (WallAccelPosition(POS_DRIVE_LEFT_INIT_X, POS_DRIVE_LEFT_INIT_Y)) {
         StopDrivePower();
 
         state = MOVE_UP;
@@ -500,11 +502,11 @@ void runStateMachine() {
       break;
 
     case MOVE_UP:
-     
-      moveForward(POS_MOVE_UP_X, POS_MOVE_UP_Y);
-      positionReached = AccelPosition(xTarget, yTarget);
+      Serial.print("Starting move up");
+      // moveForward(POS_MOVE_UP_X, POS_MOVE_UP_Y);
+      // positionReached = AccelPosition(xTarget, yTarget);
     
-      if (positionReached) {
+      if (AccelPosition(POS_MOVE_UP_X, POS_MOVE_UP_Y)) {
         StopDrivePower();
     
         state = DRIVE_RIGHT;
@@ -513,10 +515,10 @@ void runStateMachine() {
 
     case DRIVE_RIGHT:
       
-      moveRight(POS_DRIVE_RIGHT_X, POS_DRIVE_RIGHT_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget);
+      // moveRight(POS_DRIVE_RIGHT_X, POS_DRIVE_RIGHT_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget);
       
-      if (positionReached) {
+      if (WallAccelPosition(POS_DRIVE_RIGHT_X, POS_DRIVE_RIGHT_Y)) {
         StopDrivePower();
       
         state = DRIVE_FORWARD;
@@ -525,9 +527,9 @@ void runStateMachine() {
 
     case DRIVE_FORWARD:
      
-      moveForward(POS_DRIVE_FORWARD_X, POS_DRIVE_FORWARD_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveForward(POS_DRIVE_FORWARD_X, POS_DRIVE_FORWARD_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget);
+      if (WallAccelPosition(POS_DRIVE_FORWARD_X, POS_DRIVE_FORWARD_Y)) {
         StopDrivePower();
   
         state = PUSH_POT;
@@ -536,20 +538,19 @@ void runStateMachine() {
 
     case PUSH_POT:
      
-      moveLeft(POS_PUSH_POT_X, POS_PUSH_POT_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveLeft(POS_PUSH_POT_X, POS_PUSH_POT_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget);
+      if (WallAccelPosition(POS_PUSH_POT_X, POS_PUSH_POT_Y)) {
         StopDrivePower();
-        
         state = DRIVE_DOWN_IGNITE;
       }
       break;
 
     case DRIVE_DOWN_IGNITE:
      
-      moveBackward(POS_DRIVE_DOWN_IGNITE_X, POS_DRIVE_DOWN_IGNITE_Y);
-      positionReached = AccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveBackward(POS_DRIVE_DOWN_IGNITE_X, POS_DRIVE_DOWN_IGNITE_Y);
+      // positionReached = AccelPosition(xTarget, yTarget);
+      if (AccelPosition(POS_DRIVE_DOWN_IGNITE_X, POS_DRIVE_DOWN_IGNITE_Y)) {
         StopDrivePower();
     
         state = MOVE_TO_IGNITER;
@@ -558,11 +559,10 @@ void runStateMachine() {
 
     case MOVE_TO_IGNITER:
      
-      moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget);
+      if (WallAccelPosition(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y)) {
         StopDrivePower();
-  
         state = PRESS_IGNITER;
       }
       break;
@@ -576,9 +576,9 @@ void runStateMachine() {
 
     case MOVE_RIGHT_BURNER:
     
-      moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
-      positionReached = AccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
+      // positionReached = AccelPosition(xTarget, yTarget);
+      if (AccelPosition(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y)) {
         StopDrivePower();
   
         state = MOVE_UP_BURNER;
@@ -587,9 +587,9 @@ void runStateMachine() {
 
     case MOVE_UP_BURNER:
      
-      moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget);
+      if (WallAccelPosition(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y)) {
         StopDrivePower();
        
         state = DROP_BALL;
@@ -605,9 +605,9 @@ void runStateMachine() {
 
     case MOVE_BACK:
      
-      moveBackward(POS_MOVE_BACK_X, POS_MOVE_BACK_Y);
-      positionReached = AccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveBackward(POS_MOVE_BACK_X, POS_MOVE_BACK_Y);
+      // positionReached = AccelPosition(xTarget, yTarget);
+      if (AccelPosition(POS_MOVE_BACK_X, POS_MOVE_BACK_Y)) {
         StopDrivePower();
         
         state = MOVE_RIGHT_WALL;
@@ -615,10 +615,10 @@ void runStateMachine() {
       break;
 
     case MOVE_RIGHT_WALL:
-    
-      moveRight(POS_MOVE_RIGHT_WALL_X, POS_MOVE_RIGHT_WALL_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveRight(POS_MOVE_RIGHT_WALL_X, POS_MOVE_RIGHT_WALL_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget);
+
+      if (WallAccelPosition(POS_MOVE_RIGHT_WALL_X, POS_MOVE_RIGHT_WALL_Y)) {
         StopDrivePower();
 
         state = MOVE_DOWN_WALL;
@@ -627,9 +627,9 @@ void runStateMachine() {
 
     case MOVE_DOWN_WALL:
      
-      moveBackward(POS_MOVE_DOWN_WALL_X, POS_MOVE_DOWN_WALL_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveBackward(POS_MOVE_DOWN_WALL_X, POS_MOVE_DOWN_WALL_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget);
+      if (WallAccelPosition(POS_MOVE_DOWN_WALL_X, POS_MOVE_DOWN_WALL_Y)) {
         StopDrivePower();
    
         state = START_LAUNCH;
@@ -660,9 +660,9 @@ void runStateMachine() {
 
     case MOVE_OUT_PANTRY:
      
-      moveForward(POS_MOVE_OUT_PANTRY_X, POS_MOVE_OUT_PANTRY_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget); // still touching wall when moving out 
-      if (positionReached) {
+      // moveForward(POS_MOVE_OUT_PANTRY_X, POS_MOVE_OUT_PANTRY_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget); // still touching wall when moving out 
+      if (WallAccelPosition(POS_MOVE_OUT_PANTRY_X, POS_MOVE_OUT_PANTRY_Y)) {
         StopDrivePower();
    
         state = MOVE_LEFT_WALL;
@@ -671,9 +671,9 @@ void runStateMachine() {
 
     case MOVE_LEFT_WALL:
      
-      moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget); 
-      if (positionReached) {
+      // moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget); 
+      if (WallAccelPosition(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y)) {
         StopDrivePower();
        
         state = POSITION_UNDER_BURNER;
@@ -682,20 +682,19 @@ void runStateMachine() {
 
     case POSITION_UNDER_BURNER:
     
-      moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
-      positionReached = AccelPosition(xTarget, yTarget);
-      if (positionReached) {
+      // moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
+      // positionReached = AccelPosition(xTarget, yTarget);
+      if (AccelPosition(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y)) {
         StopDrivePower();
-       
         state = MOVE_TO_BURNER_WALL;
       }
       break;
 
     case MOVE_TO_BURNER_WALL:
     
-      moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget); 
-      if (positionReached) {
+      // moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget); 
+      if (WallAccelPosition(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y)) {
         StopDrivePower();
        
         state = MOVE_POT_TO_CUSTOMER;
@@ -704,9 +703,9 @@ void runStateMachine() {
 
     case MOVE_POT_TO_CUSTOMER:
      
-      moveRight(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y);
-      positionReached = WallAccelPosition(xTarget, yTarget); 
-      if (positionReached) {
+      // moveRight(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y);
+      // positionReached = WallAccelPosition(xTarget, yTarget); 
+      if (WallAccelPosition(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y)) {
         StopDrivePower();
       
         state = CELEBRATE;
