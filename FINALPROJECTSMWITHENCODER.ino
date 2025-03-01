@@ -4,7 +4,7 @@
 #include <byte-sized-encoder-decoder.h>
 #include <Derivs_Limiter.h>
 #include <TimerOne.h>
-
+#include <Servo.h> // Added Servo library
 
 // Orient Code
 
@@ -118,6 +118,18 @@ int16_t yTarget = 0;
 #define START_BUTTON    A0    // Start Button
 
 // ==============================
+// Servo Definitions and Constants
+// ==============================
+Servo igniterServo;    // Create servo object for igniter
+Servo ballDropServo;   // Create servo object for ball drop
+
+// Define servo positions
+#define IGNITER_PRESSED_POS   20   // Servo angle for pressed position (adjust as needed)
+#define IGNITER_RELEASED_POS  120  // Servo angle for released position (adjust as needed)
+#define BALL_DROP_OPEN_POS    0   // Servo angle for open position (adjust as needed)
+#define BALL_DROP_CLOSED_POS  140  // Servo angle for closed position (adjust as needed)
+
+// ==============================
 // Motor Control Parameters
 // ==============================
 #define MIN_Power 7     // Power required to get motor to start moving
@@ -173,64 +185,73 @@ State state = INIT;
 // ==============================
 // Global Timing Variables (ms)
 // ==============================
-volatile unsigned long global_timer1 = 0;  // Main match timer (2 min 10 sec)
+// volatile unsigned long global_timer1 = 0;  // Main match timer (2 min 10 sec)
 volatile unsigned long global_timer2 = 0;  // Launching timer (~1 min 30 sec)
 
-void timerISR() {
-    global_timer1++;
+void timer1ISR() {
+    // Stop all robot movement
+    StopDrivePower();
+    
+    // Go directly to celebration
+    state = CELEBRATE;
+    
+    // Or just directly call celebrate actions
+    activateFan();
+    
+    // Optionally detach the interrupt since it only needs to fire once
+    Timer1.detachInterrupt();
+}
+
+void timer2ISR() {
     global_timer2++;
 }
 
 
-// ==============================
-// Position Constants (in encoder ticks)
-// ==============================
-// 31 ticks per inch according to the encoder code
 
 const int16_t POS_DRIVE_DOWN_X = 0;         // ~0 inches in X
-const int16_t POS_DRIVE_DOWN_Y = -20 * 31;  // ~20 inches down in Y
+const int16_t POS_DRIVE_DOWN_Y = -6 * 31;  // ~6 inches down in Y
 
-const int16_t POS_DRIVE_LEFT_INIT_X = -11 * 31; // ~11 inches left in X
+const int16_t POS_DRIVE_LEFT_INIT_X = -6 * 31; // ~6 inches left in X
 const int16_t POS_DRIVE_LEFT_INIT_Y = 0;        // ~0 inches in Y
 
 const int16_t POS_MOVE_UP_X = 0;           // ~0 inches in X
-const int16_t POS_MOVE_UP_Y = 15 * 31;     // ~15 inches up in Y
+const int16_t POS_MOVE_UP_Y = 14 * 31;     // ~15 inches up in Y
 
-const int16_t POS_DRIVE_RIGHT_X = 25 * 31; // ~25 inches right in X
-const int16_t POS_DRIVE_RIGHT_Y = 0;       // ~0 inches in Y
+const int16_t POS_DRIVE_RIGHT_X = 86 * 31; // ~25 inches right in X
+const int16_t POS_DRIVE_RIGHT_Y = 14 * 31;       // ~0 inches in Y
 
-const int16_t POS_DRIVE_FORWARD_X = 0;     // ~0 inches in X
-const int16_t POS_DRIVE_FORWARD_Y = 18 * 31; // ~18 inches forward in Y
+const int16_t POS_DRIVE_FORWARD_X = 86 * 31;     // ~0 inches in X
+const int16_t POS_DRIVE_FORWARD_Y = 26 * 31; // ~18 inches forward in Y
 
-const int16_t POS_PUSH_POT_X = -22 * 31;   // ~22 inches left in X
-const int16_t POS_PUSH_POT_Y = 0;          // ~0 inches in Y
+const int16_t POS_PUSH_POT_X = 19 * 31;   // ~22 inches left in X
+const int16_t POS_PUSH_POT_Y = 26 * 31;          // ~0 inches in Y
 
-const int16_t POS_DRIVE_DOWN_IGNITE_X = 0; // ~0 inches in X
-const int16_t POS_DRIVE_DOWN_IGNITE_Y = -8 * 31; // ~8 inches down in Y
+const int16_t POS_DRIVE_DOWN_IGNITE_X = 19 * 31; // ~0 inches in X
+const int16_t POS_DRIVE_DOWN_IGNITE_Y = 17 * 31; // ~8 inches down in Y
 
-const int16_t POS_MOVE_LEFT_X = -13 * 31;  // ~13 inches left in X
-const int16_t POS_MOVE_LEFT_Y = 0;         // ~0 inches in Y
+const int16_t POS_MOVE_LEFT_X = 0 * 31;  // ~13 inches left in X
+const int16_t POS_MOVE_LEFT_Y = 17 * 31;         // ~0 inches in Y
 
-const int16_t POS_MOVE_RIGHT_BURNER_X = 7 * 31; // ~7 inches right in X
-const int16_t POS_MOVE_RIGHT_BURNER_Y = 0;      // ~0 inches in Y
+const int16_t POS_MOVE_RIGHT_BURNER_X = 4 * 31; // ~7 inches right in X
+const int16_t POS_MOVE_RIGHT_BURNER_Y = 17 * 31;      // ~0 inches in Y
 
-const int16_t POS_MOVE_UP_BURNER_X = 0;    // ~0 inches in X
-const int16_t POS_MOVE_UP_BURNER_Y = 12 * 31; // ~12 inches up in Y
+const int16_t POS_MOVE_UP_BURNER_X = 4 * 31;    // ~0 inches in X
+const int16_t POS_MOVE_UP_BURNER_Y = 26 * 31; // ~12 inches up in Y
 
-const int16_t POS_MOVE_BACK_X = 0;         // ~0 inches in X
-const int16_t POS_MOVE_BACK_Y = -10 * 31;  // ~10 inches back in Y
+const int16_t POS_MOVE_BACK_X = 4 * 31;         // ~0 inches in X
+const int16_t POS_MOVE_BACK_Y = 14 * 31;  // ~10 inches back in Y
 
-const int16_t POS_MOVE_RIGHT_WALL_X = 15 * 31; // ~15 inches right in X
-const int16_t POS_MOVE_RIGHT_WALL_Y = 0;       // ~0 inches in Y
+const int16_t POS_MOVE_RIGHT_WALL_X = 86 * 31; // ~15 inches right in X
+const int16_t POS_MOVE_RIGHT_WALL_Y = 14 * 31;       // ~0 inches in Y
 
-const int16_t POS_MOVE_DOWN_WALL_X = 0;    // ~0 inches in X
-const int16_t POS_MOVE_DOWN_WALL_Y = -12 * 31; // ~12 inches down in Y
+const int16_t POS_MOVE_DOWN_WALL_X = 86 * 31;    // ~0 inches in X
+const int16_t POS_MOVE_DOWN_WALL_Y = 0 * 31; // ~12 inches down in Y
 
-const int16_t POS_MOVE_OUT_PANTRY_X = 0;   // ~0 inches in X
-const int16_t POS_MOVE_OUT_PANTRY_Y = 15 * 31; // ~15 inches forward in Y
+const int16_t POS_MOVE_OUT_PANTRY_X = 86 * 31;   // ~0 inches in X
+const int16_t POS_MOVE_OUT_PANTRY_Y = 14 * 31; // ~15 inches forward in Y
 
-const int16_t POS_MOVE_TO_CUSTOMER_X = 25 * 31; // ~25 inches right in X
-const int16_t POS_MOVE_TO_CUSTOMER_Y = 0;       // ~0 inches in Y
+const int16_t POS_MOVE_TO_CUSTOMER_X = 86 * 31; // ~25 inches right in X
+const int16_t POS_MOVE_TO_CUSTOMER_Y = 26 * 31;       // ~0 inches in Y
 
 // Position tolerance (how close is "close enough")
 const int16_t POSITION_TOLERANCE = 31 / 2;     // 0.5 inch tolerance
@@ -270,16 +291,17 @@ void deactivateFan() {
     digitalWrite(FAN_PIN, LOW);
 }
 
+// Updated servo control functions
 void pressIgniter() {
-    digitalWrite(IGNITER_PIN, HIGH);
-    delay(500);
-    digitalWrite(IGNITER_PIN, LOW);
+    igniterServo.write(IGNITER_PRESSED_POS);
+    delay(1000);
+    igniterServo.write(IGNITER_RELEASED_POS);
 }
 
 void dropBall() {
-    digitalWrite(BALL_DROP_PIN, HIGH);
-    delay(500);
-    digitalWrite(BALL_DROP_PIN, LOW);
+    ballDropServo.write(BALL_DROP_OPEN_POS);
+    delay(1000);
+    ballDropServo.write(BALL_DROP_CLOSED_POS);
 }
 
 void startLauncher() {
@@ -415,40 +437,46 @@ bool AccelPosition(int16_t Xtarget, int16_t Ytarget) {
   YDrivePower(constrain(Kp * ((int16_t)YLimiter.calc(Ytarget) - (LPos)), -255, 255)); 
   return (abs(FPos - Xtarget) < POSITION_TOLERANCE && abs(LPos - Ytarget) < POSITION_TOLERANCE);
 }
+
+bool WallAccelPosition(int16_t Xtarget,int16_t Ytarget) {
+  LPos = -bsed.getEncoderPositionWithoutOverflows(1);
+  BPos = bsed.getEncoderPositionWithoutOverflows(2);
+//  RPos = bsed.getEncoderPositionWithoutOverflows(3);
+  FPos = -bsed.getEncoderPositionWithoutOverflows(4);
+  FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255));
+  BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255));
+  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //add RPos average later
+//  Serial.println(YLimiter.calc());
+  return ((int16_t)XLimiter.calc(Xtarget) == Xtarget && (int16_t)YLimiter.calc(Ytarget) == Ytarget) && bsed.getEncoderVelocity(1) == 0 && bsed.getEncoderVelocity(2) == 0 && bsed.getEncoderVelocity(4) == 0  ;
+}
 // ==============================
 // State Machine 
 // ==============================
 void runStateMachine() {
-  static unsigned long state_start_time = 0;
-
-  // Update encoder positions
-  LPos = -bsed.getEncoderPositionWithoutOverflows(1);
-  BPos = bsed.getEncoderPositionWithoutOverflows(2);
-  RPos = bsed.getEncoderPositionWithoutOverflows(3);
-  FPos = -bsed.getEncoderPositionWithoutOverflows(4);
-
-  // Update position control for X and Y axes
-  bool positionReached = AccelPosition(xTarget, yTarget);
+  // static unsigned long state_start_time = 0;
+  // // Update encoder positions
+  // LPos = -bsed.getEncoderPositionWithoutOverflows(1);
+  // BPos = bsed.getEncoderPositionWithoutOverflows(2);
+  // RPos = bsed.getEncoderPositionWithoutOverflows(3);
+  // FPos = -bsed.getEncoderPositionWithoutOverflows(4);
 
   switch (state) {
     case INIT:
       ZeroEncoders();
-      state_start_time = millis();
       state = ORIENT_NORTH;
       break;
 
     case ORIENT_NORTH:
       // Placeholder for orientation logic
-      delay(1000); // Simulate orientation
+      // delay(1000); // Simulate orientation
       ZeroEncoders(); // FIRST ZERO ENCODER
       state = DRIVE_DOWN;
       break;
 
     case DRIVE_DOWN:
-      if (state_start_time == 0) { // First time in this state
-        moveForward(POS_DRIVE_DOWN_X, POS_DRIVE_DOWN_Y);
-        state_start_time = millis();
-      }
+      
+      moveForward(POS_DRIVE_DOWN_X, POS_DRIVE_DOWN_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -457,10 +485,10 @@ void runStateMachine() {
       break;
 
     case DRIVE_LEFT_INIT:
-      if (state_start_time == 0) { // First time in this state
-        moveLeft(POS_DRIVE_LEFT_INIT_X, POS_DRIVE_LEFT_INIT_Y);
-        state_start_time = millis();
-      }
+    
+      moveLeft(POS_DRIVE_LEFT_INIT_X, POS_DRIVE_LEFT_INIT_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget);
+
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -470,10 +498,10 @@ void runStateMachine() {
       break;
 
     case MOVE_UP:
-      if (state_start_time == 0) { // First time in this state
-        moveForward(POS_MOVE_UP_X, POS_MOVE_UP_Y);
-        state_start_time = millis();
-      }
+     
+      moveForward(POS_MOVE_UP_X, POS_MOVE_UP_Y);
+      bool positionReached = AccelPosition(xTarget, yTarget);
+    
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -482,10 +510,10 @@ void runStateMachine() {
       break;
 
     case DRIVE_RIGHT:
-      if (state_start_time == 0) { // First time in this state
-        moveRight(POS_DRIVE_RIGHT_X, POS_DRIVE_RIGHT_Y);
-        state_start_time = millis();
-      }
+      
+      moveRight(POS_DRIVE_RIGHT_X, POS_DRIVE_RIGHT_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget);
+      
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -494,10 +522,9 @@ void runStateMachine() {
       break;
 
     case DRIVE_FORWARD:
-      if (state_start_time == 0) { // First time in this state
-        moveForward(POS_DRIVE_FORWARD_X, POS_DRIVE_FORWARD_Y);
-        state_start_time = millis();
-      }
+     
+      moveForward(POS_DRIVE_FORWARD_X, POS_DRIVE_FORWARD_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -506,10 +533,9 @@ void runStateMachine() {
       break;
 
     case PUSH_POT:
-      if (state_start_time == 0) { // First time in this state
-        moveLeft(POS_PUSH_POT_X, POS_PUSH_POT_Y);
-        state_start_time = millis();
-      }
+     
+      moveLeft(POS_PUSH_POT_X, POS_PUSH_POT_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -518,10 +544,9 @@ void runStateMachine() {
       break;
 
     case DRIVE_DOWN_IGNITE:
-      if (state_start_time == 0) { // First time in this state
-        moveBackward(POS_DRIVE_DOWN_IGNITE_X, POS_DRIVE_DOWN_IGNITE_Y);
-        state_start_time = millis();
-      }
+     
+      moveBackward(POS_DRIVE_DOWN_IGNITE_X, POS_DRIVE_DOWN_IGNITE_Y);
+      bool positionReached = AccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -530,10 +555,9 @@ void runStateMachine() {
       break;
 
     case MOVE_TO_IGNITER:
-      if (state_start_time == 0) { // First time in this state
-        moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
-        state_start_time = millis();
-      }
+     
+      moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -542,17 +566,16 @@ void runStateMachine() {
       break;
 
     case PRESS_IGNITER:
-      // Simulate pressing the igniter
-      delay(500); // Simulate igniter press
+      // Use the servo to press the igniter
+      pressIgniter();
       state_start_time = 0;
       state = MOVE_RIGHT_BURNER;
       break;
 
     case MOVE_RIGHT_BURNER:
-      if (state_start_time == 0) { // First time in this state
-        moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
-        state_start_time = millis();
-      }
+    
+      moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
+      bool positionReached = AccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -561,10 +584,9 @@ void runStateMachine() {
       break;
 
     case MOVE_UP_BURNER:
-      if (state_start_time == 0) { // First time in this state
-        moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
-        state_start_time = millis();
-      }
+     
+      moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -573,17 +595,16 @@ void runStateMachine() {
       break;
 
     case DROP_BALL:
-      // Simulate dropping the ball
-      delay(500); // Simulate ball drop
+      // Use the servo to drop the ball
+      dropBall();
       state_start_time = 0;
       state = MOVE_BACK;
       break;
 
     case MOVE_BACK:
-      if (state_start_time == 0) { // First time in this state
-        moveBackward(POS_MOVE_BACK_X, POS_MOVE_BACK_Y);
-        state_start_time = millis();
-      }
+     
+      moveBackward(POS_MOVE_BACK_X, POS_MOVE_BACK_Y);
+      bool positionReached = AccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -592,10 +613,9 @@ void runStateMachine() {
       break;
 
     case MOVE_RIGHT_WALL:
-      if (state_start_time == 0) { // First time in this state
-        moveRight(POS_MOVE_RIGHT_WALL_X, POS_MOVE_RIGHT_WALL_Y);
-        state_start_time = millis();
-      }
+    
+      moveRight(POS_MOVE_RIGHT_WALL_X, POS_MOVE_RIGHT_WALL_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -604,10 +624,9 @@ void runStateMachine() {
       break;
 
     case MOVE_DOWN_WALL:
-      if (state_start_time == 0) { // First time in this state
-        moveBackward(POS_MOVE_DOWN_WALL_X, POS_MOVE_DOWN_WALL_Y);
-        state_start_time = millis();
-      }
+     
+      moveBackward(POS_MOVE_DOWN_WALL_X, POS_MOVE_DOWN_WALL_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -617,7 +636,7 @@ void runStateMachine() {
 
     case START_LAUNCH:
       // Simulate starting the launcher
-      delay(500); // Simulate launcher start
+      startLauncher();
       state_start_time = 0;
       state = LAUNCHING;
       break;
@@ -631,17 +650,16 @@ void runStateMachine() {
       break;
 
     case STOP_LAUNCH:
-      // Simulate stopping the launcher
-      delay(500); // Simulate launcher stop
+      // Stop the launcher
+      stopLauncher();
       state_start_time = 0;
       state = MOVE_OUT_PANTRY;
       break;
 
     case MOVE_OUT_PANTRY:
-      if (state_start_time == 0) { // First time in this state
-        moveForward(POS_MOVE_OUT_PANTRY_X, POS_MOVE_OUT_PANTRY_Y);
-        state_start_time = millis();
-      }
+     
+      moveForward(POS_MOVE_OUT_PANTRY_X, POS_MOVE_OUT_PANTRY_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget); // still touching wall when moving out 
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -650,10 +668,9 @@ void runStateMachine() {
       break;
 
     case MOVE_LEFT_WALL:
-      if (state_start_time == 0) { // First time in this state
-        moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
-        state_start_time = millis();
-      }
+     
+      moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget); 
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -662,10 +679,9 @@ void runStateMachine() {
       break;
 
     case POSITION_UNDER_BURNER:
-      if (state_start_time == 0) { // First time in this state
-        moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
-        state_start_time = millis();
-      }
+    
+      moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
+      bool positionReached = AccelPosition(xTarget, yTarget);
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -674,10 +690,9 @@ void runStateMachine() {
       break;
 
     case MOVE_TO_BURNER_WALL:
-      if (state_start_time == 0) { // First time in this state
-        moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
-        state_start_time = millis();
-      }
+    
+      moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget); 
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -686,10 +701,9 @@ void runStateMachine() {
       break;
 
     case MOVE_POT_TO_CUSTOMER:
-      if (state_start_time == 0) { // First time in this state
-        moveRight(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y);
-        state_start_time = millis();
-      }
+     
+      moveRight(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y);
+      bool positionReached = WallAccelPosition(xTarget, yTarget); 
       if (positionReached) {
         StopDrivePower();
         state_start_time = 0;
@@ -699,7 +713,7 @@ void runStateMachine() {
 
     case CELEBRATE:
       StopDrivePower();
-      // Activate celebration fan or other actions
+      activateFan(); // Activate celebration fan
       break;
   }
 }
@@ -709,30 +723,30 @@ void runStateMachine() {
 // ==============================
 void setup() {
     // Orient Setup
-    Wire.begin();
-    Serial.begin(9600);
-    Serial.println("\nTCAScanner ready!");
+    // Wire.begin();
+    // Serial.begin(9600);
+    // Serial.println("\nTCAScanner ready!");
 
-    Serial.println("VL53L0X ToF Test"); Serial.println("");
+    // Serial.println("VL53L0X ToF Test"); Serial.println("");
     
-    /* Initialise the 1st sensor */
-    tcaselect(2);
-    if(!lox1.begin()) {
-      /* There was a problem detecting the HMC5883 ... check your connections */
-      Serial.println("Ooops, no VL53L0X detected ... Check your wiring!");
-      while(1);
-    }
+    // /* Initialise the 1st sensor */
+    // tcaselect(2);
+    // if(!lox1.begin()) {
+    //   /* There was a problem detecting the HMC5883 ... check your connections */
+    //   Serial.println("Ooops, no VL53L0X detected ... Check your wiring!");
+    //   while(1);
+    // }
     
-    /* Initialise the 2nd sensor */
-    tcaselect(7);
-    if(!lox2.begin()){
-      /* There was a problem detecting the HMC5883 ... check your connections */
-      Serial.println("Ooops, no VL53L0X detected ... Check your wiring!");
-      while(1);
-    }
+    // /* Initialise the 2nd sensor */
+    // tcaselect(7);
+    // if(!lox2.begin()){
+    //   /* There was a problem detecting the HMC5883 ... check your connections */
+    //   Serial.println("Ooops, no VL53L0X detected ... Check your wiring!");
+    //   while(1);
+    // }
 
-    pinMode(trigPin, OUTPUT);
-    pinMode(echoPin, INPUT);
+    // pinMode(trigPin, OUTPUT);
+    // pinMode(echoPin, INPUT);
     // Motor pins for 3-wheel drive
     pinMode(FrontMotorPWM, OUTPUT);
     pinMode(FrontMotorDIR, OUTPUT);
@@ -767,15 +781,20 @@ void setup() {
     // Zero the encoders at start
     ZeroEncoders();
     
+    //Servo setup
+    igniterServo.write(IGNITER_RELEASED_POS);
+    ballDropServo.write(BALL_DROP_CLOSED_POS);
     // Optional: Wait for start button press
-    while (digitalRead(START_BUTTON) == HIGH) {
-        // Wait for button press
-        delay(10);
-    }
-    delay(1000); // Debounce delay
+    // while (digitalRead(START_BUTTON) == HIGH) {
+    //     // Wait for button press
+    //     delay(10);
+    // }
+    // delay(1000); // Debounce delay
 
-    Timer1.initialize(1000);
-    Timer1.attachInterrupt(timerISR);
+    Timer1.initialize(130000000); // 2 minutes 10 seconds 
+    Timer2.initalize(1000); // 1 second
+    Timer1.attachInterrupt(timer1ISR);
+    Timer2.attachInterrupt(timer2ISR);
 }
 
 void loop() {
