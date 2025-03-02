@@ -6,7 +6,7 @@
 #include <Servo.h> // Added Servo library
 
 
-// Timer
+// Timer Init
 
 unsigned long startTime; 
 
