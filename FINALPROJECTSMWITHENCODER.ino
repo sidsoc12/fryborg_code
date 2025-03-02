@@ -8,95 +8,60 @@
 
 // Timer
 
-unsigned long startTime;
+unsigned long startTime; 
 
 // Orient Code
 
 #include <Wire.h>
-#include <Adafruit_VL53L0X.h>
-
+#include <VL53L0X_mod.h>
 #define TCAADDR 0x70
-
-/* Assign a unique ID to this sensor at the same time */
-Adafruit_VL53L0X lox1 = Adafruit_VL53L0X();
-Adafruit_VL53L0X lox2 = Adafruit_VL53L0X();
-
-const int trigPin = 9;
-const int echoPin = 10;
-
-float duration, distance;
-
-uint8_t orienting = true;
-
+VL53L0X_mod sensor1;
+VL53L0X_mod sensor2;
+VL53L0X_mod sensor3;
+bool oriented = false;
 void tcaselect(uint8_t i) {
   if (i > 7) return;
   Wire.beginTransmission(TCAADDR);
   Wire.write(1 << i);
-  Wire.endTransmission();  
+  Wire.endTransmission();
 }
 
 void orient(void) {
-  float sensor1;
-  float sensor2;
-  float sensor3;
-  
-  while (orienting) {
-    VL53L0X_RangingMeasurementData_t measure;
-
+  uint16_t distance1;
+  uint16_t distance2;
+  uint16_t distance3;
+  while (!oriented) {
     tcaselect(2);
-    lox1.rangingTest(&measure, false);  // pass in 'true' to get debug data printout!
-
-    if (measure.RangeStatus != 4) {  // phase failures have incorrect data
-      sensor1 = measure.RangeMilliMeter;
-      Serial.print("Sensor1 = ");
-      Serial.print(sensor1);
-    } else {
-      sensor1 = 10000;
-      //Serial.println(" out of range ");
-    }
-
-    VL53L0X_RangingMeasurementData_t measure2;
+    distance1 = sensor1.readRangeSingleMillimeters();
+    Serial.print("Sensor1 = ");
+    Serial.print(distance1);
 
     tcaselect(7);
-    lox2.rangingTest(&measure2, false);  // pass in 'true' to get debug data printout!
+    distance2 = sensor2.readRangeSingleMillimeters();
+    Serial.print(" Sensor2 = ");
+    Serial.print(distance2);
+    tcaselect(5);
+    distance3 = sensor3.readRangeSingleMillimeters();
+    Serial.print(" Sensor3 = ");
+    Serial.println(distance3);
 
-    if (measure2.RangeStatus != 4) {  // phase failures have incorrect data
-      sensor2 = measure2.RangeMilliMeter;
-      Serial.print(" Sensor2 = ");
-      Serial.print(sensor2);
-    } else {
-      sensor2 = 11000;
-      //Serial.println(" out of range ");
-    }
-  
-    digitalWrite(trigPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-
-    duration = pulseIn(echoPin, HIGH);
-    distance = (duration*.343)/2;
-    sensor3 = distance;
-    Serial.print(" US Sensor3 =  ");
-    Serial.println(distance);
-
-    if((sensor1 > (sensor2 - 10)) && (sensor1 < (sensor2 + 10)) && (sensor3 < 100) && (sensor1 > 500)) {
+    if((distance1 > (distance2 - 25)) && (distance1 < (distance2 + 25)) && (distance3 < 300) && (distance1 > 500)) {
+      StopDrivePower();
+      Serial.print(distance1);
       Serial.println("Oriented!");
-      orienting = false;
+      oriented = true;
+      break;
     }
-    //delay(100);
-
+    SpinDrivePower(4);
   }
 }
-
 // ==============================
 // Encoder Control Setup
 // ==============================
 ByteSizedEncoderDecoder bsed = ByteSizedEncoderDecoder(&Wire, 0x0F);
 
-Derivs_Limiter YLimiter = Derivs_Limiter(1500, 400, 500); // velocity, increasing acceleration, decreasing acceleration
-Derivs_Limiter XLimiter = Derivs_Limiter(3500, 2000, 900); // velocity, increasing acceleration, decreasing acceleration
+Derivs_Limiter YLimiter = Derivs_Limiter(12000, 300, 400); // velocity, increasing acceleration, decreasing acceleration
+Derivs_Limiter XLimiter = Derivs_Limiter(35000, 1100, 900); // velocity, increasing acceleration, decreasing acceleration
 
 //int16_t xTarget = 0;
 //int16_t yTarget = 0;
@@ -152,6 +117,11 @@ int16_t LPos = 0;
 int16_t FPos = 0;
 int16_t BPos = 0;
 
+bool pressed = false;
+bool dropped = false;
+unsigned long servostarttime;
+
+
 // ==============================
 // State Definitions
 // ==============================
@@ -164,6 +134,7 @@ enum State {
   DRIVE_RIGHT,
   DRIVE_FORWARD,
   PUSH_POT,
+  MOVE_RIGHT_FROM_POT,
   DRIVE_DOWN_IGNITE,
   MOVE_TO_IGNITER,
   PRESS_IGNITER,
@@ -301,17 +272,44 @@ void deactivateFan() {
 }
 
 // Updated servo control functions
-void pressIgniter() {
+bool pressIgniter() {
+  if (!pressed){
     igniterServo.write(IGNITER_PRESSED_POS);
-    delay(1000);
+    pressed=true;
+    servostarttime = millis();
+    return false;
+  }
+  unsigned long current = millis();
+  //Serial.print("current time for igniter: ");
+  //Serial.println(current);
+  //Serial.print("start time: ");
+  //Serial.println(servostarttime);
+  if (current > servostarttime + 1000) {
     igniterServo.write(IGNITER_RELEASED_POS);
+    return true;
+  } 
+  return false;
 }
 
-void dropBall() {
-    ballDropServo.write(BALL_DROP_OPEN_POS);
-    delay(1000);
-    ballDropServo.write(BALL_DROP_CLOSED_POS);
+bool dropBall() {
+    if (!dropped){
+      ballDropServo.write(BALL_DROP_OPEN_POS);
+      dropped=true;
+      servostarttime = millis();
+      return false;
+    }
+    unsigned long current = millis();
+    //Serial.print("current time for igniter: ");
+    //Serial.println(current);
+    //Serial.print("start time: ");
+    //Serial.println(servostarttime);
+    if (current > servostarttime + 1000) {
+      ballDropServo.write(BALL_DROP_CLOSED_POS);
+      return true;
+    } 
+    return false;
 }
+
 
 void startLauncher() {
     digitalWrite(LAUNCHER_MOTOR, HIGH);
@@ -340,6 +338,8 @@ void ZeroEncoders() {
   bsed.resetEncoderPositions(); 
   XLimiter.setPosition(0);
   YLimiter.setPosition(0);
+  XLimiter.resetTime();
+  YLimiter.resetTime();
   
 }
 
@@ -409,22 +409,24 @@ void SpinDrivePower(int16_t power) {
     analogWrite(FrontMotorPWM, 0);
     analogWrite(BackMotorPWM, 0);
   } else if (power < 0) { // spin CW
-    analogWrite(SideMotorsPWM, 0);
     digitalWrite(FrontMotorDIR, LOW);
     digitalWrite(BackMotorDIR, HIGH);
+    digitalWrite(SideMotorsDIR, LOW);  //REMOVE SOMEDAY
     uint8_t pwmValue = power2PWM(abs(power));
     analogWrite(FrontMotorPWM, pwmValue);
     analogWrite(BackMotorPWM, pwmValue);
+    analogWrite(SideMotorsPWM, pwmValue); //REMOVE SOMEDAY
   } else {  // spin CCW
-    analogWrite(SideMotorsPWM, 0);
     digitalWrite(FrontMotorDIR, HIGH);
     digitalWrite(BackMotorDIR, LOW);
+    digitalWrite(SideMotorsDIR, HIGH); //REMOVE SOMEDAY
     uint8_t pwmValue = power2PWM(abs(power));
     analogWrite(FrontMotorPWM, pwmValue);
     analogWrite(BackMotorPWM, pwmValue);
+    analogWrite(SideMotorsPWM, pwmValue); //REMOVE SOMEDAY
+
   }
 }
-
 void StopDrivePower(void) { // don't move
   analogWrite(FrontMotorPWM, 0);
   analogWrite(BackMotorPWM, 0);
@@ -440,24 +442,24 @@ uint8_t power2PWM(uint8_t power) { // scaling function
 // ==============================
 // Acceleration Logic
 // ==============================
-bool AccelPosition(int16_t Xtarget, int16_t Ytarget) {  
+bool AccelPosition(int16_t Xtarget,int16_t Ytarget) {  
   LPos = -bsed.getEncoderPositionWithoutOverflows(1);
   BPos = bsed.getEncoderPositionWithoutOverflows(2);
 //  RPos = bsed.getEncoderPositionWithoutOverflows(3);
   FPos = -bsed.getEncoderPositionWithoutOverflows(4);
-  XDrivePower(constrain(Kp * ((int16_t)XLimiter.calc(Xtarget) - (FPos)), -255, 255)); 
-  YDrivePower(constrain(Kp * ((int16_t)YLimiter.calc(Ytarget) - (LPos)), -255, 255)); 
-//  Serial.println((int16_t)XLimiter.calc(Xtarget));
+  FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255)); 
+  BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255)); 
+  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //add RPos average later
   return (abs(FPos - Xtarget) < 3 && abs(BPos - Xtarget) < 3 && abs(LPos-Ytarget) < 3); //add Rpos later
 }
 
-bool WallAccelPosition(int16_t Xtarget,int16_t Ytarget) {
+bool WallAccelPosition(int16_t Xtarget,int16_t Ytarget) {  
   LPos = -bsed.getEncoderPositionWithoutOverflows(1);
   BPos = bsed.getEncoderPositionWithoutOverflows(2);
 //  RPos = bsed.getEncoderPositionWithoutOverflows(3);
   FPos = -bsed.getEncoderPositionWithoutOverflows(4);
-  FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255));
-  BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255));
+  FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255)); 
+  BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255)); 
   YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //add RPos average later
   return ((int16_t)XLimiter.calc(Xtarget) == Xtarget && (int16_t)YLimiter.calc(Ytarget) == Ytarget) && bsed.getEncoderVelocity(1) == 0 && bsed.getEncoderVelocity(2) == 0 && bsed.getEncoderVelocity(4) == 0  ;
 }
@@ -490,105 +492,85 @@ void runStateMachine() {
   switch (state) {
     case INIT:
       Serial.println("Starting init");
-    //  ZeroEncoders();
       state = ORIENT_NORTH;
       break;
 
     case ORIENT_NORTH:
       Serial.println("orient");
-      // Placeholder for orientation logic
-      // delay(1000); // Simulate orientation
-      ZeroEncoders(); // FIRST ZERO ENCODER
-      state = DRIVE_DOWN;
+      orient();
+      if (oriented){
+        ZeroEncoders(); // FIRST ZERO ENCODER
+        state = DRIVE_DOWN;
+      }
       break;
 
     case DRIVE_DOWN:
       Serial.println("drive down");
-      // moveForward(POS_DRIVE_DOWN_X, POS_DRIVE_DOWN_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(0,-6*31)) {
-      ZeroEncoders(); // FIRST ZERO ENCODER
-      //  StopDrivePower();
+      if (WallAccelPosition(0,-10*31)) {
+        ZeroEncoders(); // FIRST ZERO ENCODER
         state = DRIVE_LEFT_INIT;
       }
       break;
 
     case DRIVE_LEFT_INIT:
       Serial.println("drive left");
-      // moveLeft(POS_DRIVE_LEFT_INIT_X, POS_DRIVE_LEFT_INIT_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget);
-
-      if (WallAccelPosition(-6*31,0)) {
-      //  StopDrivePower();
+      if (WallAccelPosition(-10*31,0)) {
         state = MOVE_UP;
-      ZeroEncoders(); // SECOND ZERO ENCODER(OFFICIAL ZERO) 
+      ZeroEncoders(); 
       }
       break;
 
     case MOVE_UP:
       Serial.println("move up");
-      // moveForward(POS_MOVE_UP_X, POS_MOVE_UP_Y);
-      // positionReached = AccelPosition(xTarget, yTarget);
-    
-      if (AccelPosition(0,14*31)) {
-    //    StopDrivePower();
-    
+      if (AccelPosition(0,16*31)) {
         state = DRIVE_RIGHT;
       }
       break;
 
     case DRIVE_RIGHT:
        Serial.println("drive right");
- 
-      // moveRight(POS_DRIVE_RIGHT_X, POS_DRIVE_RIGHT_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget);
-      
-      if (WallAccelPosition(86*31,14*31)) {
-        StopDrivePower();
-      
+      if (WallAccelPosition(86*31,15*31)) {
         state = DRIVE_FORWARD;
       }
       break;
 
     case DRIVE_FORWARD:
        Serial.println("drive forward");
-      // moveForward(POS_DRIVE_FORWARD_X, POS_DRIVE_FORWARD_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(86*31,26*31)) {
-        StopDrivePower();
-  
+      if (WallAccelPosition(86*31,35*31)) {
+      ZeroEncoders();  
         state = PUSH_POT;
       }
       break;
 
     case PUSH_POT:
        Serial.println("push pot");
-      // moveLeft(POS_PUSH_POT_X, POS_PUSH_POT_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(19*31, 26*31)) {
-        StopDrivePower();
-        state = DRIVE_DOWN_IGNITE;
+    
+      if (WallAccelPosition(-77*31, 0)) {
+        ZeroEncoders();
+        state = MOVE_RIGHT_FROM_POT;
       }
       break;
+    
+
+    case MOVE_RIGHT_FROM_POT:
+      Serial.println("Move right from pot");
+     
+     if (AccelPosition(3*31, 0)) {
+       state = DRIVE_DOWN_IGNITE;
+     }
+     break;  
 
     case DRIVE_DOWN_IGNITE:
-       Serial.println("down ignite");
-
-      // moveBackward(POS_DRIVE_DOWN_IGNITE_X, POS_DRIVE_DOWN_IGNITE_Y);
-      // positionReached = AccelPosition(xTarget, yTarget);
-      if (AccelPosition(19*31,17*31)) {
-        StopDrivePower();
-    
+      Serial.println("down ignite");
+      if (AccelPosition(3*31,-15*31)) {
         state = MOVE_TO_IGNITER;
       }
       break;
 
     case MOVE_TO_IGNITER:
        Serial.println("to igniter");
-
-      // moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(0,17*31)) {
+      if (WallAccelPosition(-20*31,-15*31)) {
+        ZeroEncoders();
         StopDrivePower();
         state = PRESS_IGNITER;
       }
@@ -596,74 +578,58 @@ void runStateMachine() {
 
     case PRESS_IGNITER:
       Serial.println("press");
+      if (pressIgniter()){ // Use the servo to press the igniter
+        XLimiter.resetTime();
+        YLimiter.resetTime();
+        state = MOVE_RIGHT_BURNER;
 
-      // Use the servo to press the igniter
-      pressIgniter();
-    
-      state = MOVE_RIGHT_BURNER;
+      };
       break;
 
     case MOVE_RIGHT_BURNER:
       Serial.println("right burner");
-
-      // moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
-      // positionReached = AccelPosition(xTarget, yTarget);
-      if (AccelPosition(4*31,17*31)) {
-        StopDrivePower();
-  
+      if (AccelPosition(5*31,0)) {
         state = MOVE_UP_BURNER;
       }
       break;
 
     case MOVE_UP_BURNER:
       Serial.println("up burner");
-      // moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(4*31,26*31)) {
+      if (WallAccelPosition(5*31,18*31)) {
+        ZeroEncoders();
         StopDrivePower();
-       
         state = DROP_BALL;
       }
       break;
 
     case DROP_BALL:
       Serial.println("dropping");
-  // Use the servo to drop the ball
-      dropBall();
-  
-      state = MOVE_BACK;
+      if (dropBall()){ // Use the servo to drop the ball
+        XLimiter.resetTime();
+        YLimiter.resetTime();
+        state = MOVE_BACK;
+      };
       break;
 
     case MOVE_BACK:
      Serial.println("MB");
-      // moveBackward(POS_MOVE_BACK_X, POS_MOVE_BACK_Y);
-      // positionReached = AccelPosition(xTarget, yTarget);
-      if (AccelPosition(4*31,14*31)) {
-        StopDrivePower();
-        
+      if (AccelPosition(0,-17*31)) {    
         state = MOVE_RIGHT_WALL;
       }
       break;
 
     case MOVE_RIGHT_WALL:
     Serial.println("MRW");
-      // moveRight(POS_MOVE_RIGHT_WALL_X, POS_MOVE_RIGHT_WALL_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget);
-
-      if (WallAccelPosition(86*31,14*31)) {
-        StopDrivePower();
-
+      if (WallAccelPosition(82*31,-17*31)) {
+        ZeroEncoders();
         state = MOVE_DOWN_WALL;
       }
       break;
 
     case MOVE_DOWN_WALL:
      Serial.println("MDW");
-      // moveBackward(POS_MOVE_DOWN_WALL_X, POS_MOVE_DOWN_WALL_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(86*31,0)) {
+      if (WallAccelPosition(10,-17*31)) {
         StopDrivePower();
-   
         state = START_LAUNCH;
       }
       break;
@@ -685,49 +651,36 @@ void runStateMachine() {
     case STOP_LAUNCH:
       // Stop the launcher
       stopLauncher();
-    
+      ZeroEncoders();
       state = MOVE_OUT_PANTRY;
       break;
 
     case MOVE_OUT_PANTRY:
      Serial.println("MOP");
-      // moveForward(POS_MOVE_OUT_PANTRY_X, POS_MOVE_OUT_PANTRY_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget); // still touching wall when moving out 
-      if (WallAccelPosition(86*31,14*31)) {
-        StopDrivePower();
-   
+      if (AccelPosition(0,14*31)) {
         state = MOVE_LEFT_WALL;
       }
       break;
 
     case MOVE_LEFT_WALL:
      Serial.println("MLW");
-      // moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget); 
-      if (WallAccelPosition(86*31,26*31)) {
-        StopDrivePower();
-       
+      if (WallAccelPosition(-86*31,14*31)) {
+        ZeroEncoders();
         state = POSITION_UNDER_BURNER;
       }
       break;
 
     case POSITION_UNDER_BURNER:
     Serial.println("PUB");
-      // moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
-      // positionReached = AccelPosition(xTarget, yTarget);
-      if (AccelPosition(4*31,17*31)) {
-        StopDrivePower();
+      if (AccelPosition(5*31,0)) {
         state = MOVE_TO_BURNER_WALL;
       }
       break;
 
     case MOVE_TO_BURNER_WALL:
     Serial.println("MBW");
-      // moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget); 
-      if (WallAccelPosition(4*31,26*31)) {
-        StopDrivePower();
-       
+      if (WallAccelPosition(5*31,13*31)) {
+        ZeroEncoders();
         state = MOVE_POT_TO_CUSTOMER;
       }
       break;
@@ -736,9 +689,8 @@ void runStateMachine() {
      Serial.println("MPC");
       // moveRight(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget); 
-      if (WallAccelPosition(86*31,26*31)) {
+      if (WallAccelPosition(83*31,0)) {
         StopDrivePower();
-      
         state = CELEBRATE;
       }
       break;
@@ -758,7 +710,9 @@ void setup() {
     // Orient Setup
     // Wire.begin();
     Serial.begin(115200);
-    Serial.println("\nTCAScanner ready!");
+    delay(5000);
+    //Serial.println("\nTCAScanner ready!");
+
 
     // Serial.println("VL53L0X ToF Test"); Serial.println("");
     
@@ -781,6 +735,36 @@ void setup() {
     // pinMode(trigPin, OUTPUT);
     // pinMode(echoPin, INPUT);
     // Motor pins for 3-wheel drive
+
+
+    // ORIENTATION SETUP 
+
+    Wire.begin();
+    Serial.println("starting");
+    //sensor.setTimeout(500);
+     /* Initialise the 1st sensor */
+    tcaselect(2);
+    if (!sensor1.init())
+    {
+      Serial.println("Failed to detect and initialize sensor1!");
+      while (1) {}
+    }
+   // Initialise the 2nd sensor
+    tcaselect(7);
+    if (!sensor2.init())
+    {
+      Serial.println("Failed to detect and initialize sensor2!");
+      while (1) {}
+    }
+   // Initialise the 3rd sensor
+    tcaselect(5);
+    if (!sensor3.init())
+    {
+      Serial.println("Failed to detect and initialize sensor3!");
+      while (1) {}
+    }
+
+    // PIN SET UP 
     pinMode(FrontMotorPWM, OUTPUT);
     pinMode(FrontMotorDIR, OUTPUT);
     pinMode(BackMotorPWM, OUTPUT);
@@ -796,7 +780,9 @@ void setup() {
     pinMode(BALL_DROP_PIN, OUTPUT);
     pinMode(FAN_PIN, OUTPUT);
     pinMode(START_BUTTON, INPUT_PULLUP);
-    
+
+    ballDropServo.attach(BALL_DROP_PIN);
+    igniterServo.attach(IGNITER_PIN);    
     // Initialize all outputs to LOW
     StopDrivePower();
     digitalWrite(LAUNCHER_MOTOR, LOW);
@@ -850,5 +836,5 @@ void loop() {
     runStateMachine();
     
     // Small delay to prevent CPU hogging
-    delay(5);
+    delay(1);
 }
