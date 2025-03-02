@@ -5,6 +5,11 @@
 #include <Derivs_Limiter.h>
 #include <Servo.h> // Added Servo library
 
+
+// Timer
+
+unsigned long startTime;
+
 // Orient Code
 
 #include <Wire.h>
@@ -90,11 +95,11 @@ void orient(void) {
 // ==============================
 ByteSizedEncoderDecoder bsed = ByteSizedEncoderDecoder(&Wire, 0x0F);
 
-Derivs_Limiter YLimiter = Derivs_Limiter(15000, 400, 500); // velocity, increasing acceleration, decreasing acceleration
-Derivs_Limiter XLimiter = Derivs_Limiter(35000, 2000, 900); // velocity, increasing acceleration, decreasing acceleration
+Derivs_Limiter YLimiter = Derivs_Limiter(1500, 400, 500); // velocity, increasing acceleration, decreasing acceleration
+Derivs_Limiter XLimiter = Derivs_Limiter(3500, 2000, 900); // velocity, increasing acceleration, decreasing acceleration
 
-int16_t xTarget = 0;
-int16_t yTarget = 0;
+//int16_t xTarget = 0;
+//int16_t yTarget = 0;
 
 // ==============================
 // Pin Definitions for 3-Wheel Drive
@@ -137,7 +142,7 @@ Servo ballDropServo;   // Create servo object for ball drop
 // ==============================
 // Control Loop Parameters
 // ==============================
-#define Kp 7
+#define Kp 5
 
 // ==============================
 // Encoder Position Variables
@@ -185,79 +190,80 @@ State state = INIT;
 // Global Timing Variables (ms)
 // ==============================
 // volatile unsigned long global_timer1 = 0;  // Main match timer (2 min 10 sec)
-volatile unsigned long global_timer2 = 0;  // Launching timer (~1 min 30 sec)
+// volatile unsigned long global_timer2 = 0;  // Launching timer (~1 min 30 sec)
 
-TimerInterrupt ITimer1;
-TimerInterrupt ITimer2;
+// TimerInterrupt ITimer1;
+// TimerInterrupt ITimer2;
 
-void timer1ISR() {
-    // Stop all robot movement
-    StopDrivePower();
+// void timer1ISR() {
+//     // Stop all robot movement
+//     StopDrivePower();
     
-    // Go directly to celebration
-    state = CELEBRATE;
+//     // Go directly to celebration
+//     state = CELEBRATE;
     
-    // Or just directly call celebrate actions
-    activateFan();
+//     // Or just directly call celebrate actions
+//     activateFan();
     
-    // Optionally detach the interrupt since it only needs to fire once
-    // Timer1.detachInterrupt(); // Old way
-    ITimer1.detachInterrupt(); // New way using TimerInterrupt library
-}
+//     // Optionally detach the interrupt since it only needs to fire once
+//     // Timer1.detachInterrupt(); // Old way
+//     ITimer1.detachInterrupt(); // New way using TimerInterrupt library
+// }
 
-void timer2ISR() {
-    global_timer2++;
-}
+// void timer2ISR() {
+//     global_timer2++;
+//     Serial.println("tick");
+// }
 
 
 
-const int16_t POS_DRIVE_DOWN_X = 0;         // ~0 inches in X
-const int16_t POS_DRIVE_DOWN_Y = -6 * 31;  // ~6 inches down in Y
+// const int16_t POS_DRIVE_DOWN_X = 0;         // ~0 inches in X
+// const int16_t POS_DRIVE_DOWN_Y = 0 * 31;  // ~6 inches down in Y
 
-const int16_t POS_DRIVE_LEFT_INIT_X = -6 * 31; // ~6 inches left in X
-const int16_t POS_DRIVE_LEFT_INIT_Y = 0;        // ~0 inches in Y
+// const int16_t POS_DRIVE_LEFT_INIT_X = 0 * 31; // ~6 inches left in X
+// const int16_t POS_DRIVE_LEFT_INIT_Y = 0;        // ~0 inches in Y
 
-const int16_t POS_MOVE_UP_X = 0;           // ~0 inches in X
-const int16_t POS_MOVE_UP_Y = 14 * 31;     // ~15 inches up in Y
+// const int16_t POS_MOVE_UP_X = 0;           // ~0 inches in X
+// const int16_t POS_MOVE_UP_Y = 14 * 31;     // ~15 inches up in Y
 
-const int16_t POS_DRIVE_RIGHT_X = 86 * 31; // ~25 inches right in X
-const int16_t POS_DRIVE_RIGHT_Y = 14 * 31;       // ~0 inches in Y
+// const int16_t POS_DRIVE_RIGHT_X = 86 * 31; // ~25 inches right in X
+// const int16_t POS_DRIVE_RIGHT_Y = 14 * 31;       // ~0 inches in Y
 
-const int16_t POS_DRIVE_FORWARD_X = 86 * 31;     // ~0 inches in X
-const int16_t POS_DRIVE_FORWARD_Y = 26 * 31; // ~18 inches forward in Y
+// const int16_t POS_DRIVE_FORWARD_X = 86 * 31;     // ~0 inches in X
+// const int16_t POS_DRIVE_FORWARD_Y = 26 * 31; // ~18 inches forward in Y
 
-const int16_t POS_PUSH_POT_X = 19 * 31;   // ~22 inches left in X
-const int16_t POS_PUSH_POT_Y = 26 * 31;          // ~0 inches in Y
+// const int16_t POS_PUSH_POT_X = 19 * 31;   // ~22 inches left in X
+// const int16_t POS_PUSH_POT_Y = 26 * 31;          // ~0 inches in Y
 
-const int16_t POS_DRIVE_DOWN_IGNITE_X = 19 * 31; // ~0 inches in X
-const int16_t POS_DRIVE_DOWN_IGNITE_Y = 17 * 31; // ~8 inches down in Y
+// const int16_t POS_DRIVE_DOWN_IGNITE_X = 19 * 31; // ~0 inches in X
+// const int16_t POS_DRIVE_DOWN_IGNITE_Y = 17 * 31; // ~8 inches down in Y
 
-const int16_t POS_MOVE_LEFT_X = 0 * 31;  // ~13 inches left in X
-const int16_t POS_MOVE_LEFT_Y = 17 * 31;         // ~0 inches in Y
+// const int16_t POS_MOVE_LEFT_X = 0 * 31;  // ~13 inches left in X
+// const int16_t POS_MOVE_LEFT_Y = 17 * 31;         // ~0 inches in Y
 
-const int16_t POS_MOVE_RIGHT_BURNER_X = 4 * 31; // ~7 inches right in X
-const int16_t POS_MOVE_RIGHT_BURNER_Y = 17 * 31;      // ~0 inches in Y
+// const int16_t POS_MOVE_RIGHT_BURNER_X = 4 * 31; // ~7 inches right in X
+// const int16_t POS_MOVE_RIGHT_BURNER_Y = 17 * 31;      // ~0 inches in Y
 
-const int16_t POS_MOVE_UP_BURNER_X = 4 * 31;    // ~0 inches in X
-const int16_t POS_MOVE_UP_BURNER_Y = 26 * 31; // ~12 inches up in Y
+// const int16_t POS_MOVE_UP_BURNER_X = 4 * 31;    // ~0 inches in X
+// const int16_t POS_MOVE_UP_BURNER_Y = 26 * 31; // ~12 inches up in Y
 
-const int16_t POS_MOVE_BACK_X = 4 * 31;         // ~0 inches in X
-const int16_t POS_MOVE_BACK_Y = 14 * 31;  // ~10 inches back in Y
+// const int16_t POS_MOVE_BACK_X = 4 * 31;         // ~0 inches in X
+// const int16_t POS_MOVE_BACK_Y = 14 * 31;  // ~10 inches back in Y
 
-const int16_t POS_MOVE_RIGHT_WALL_X = 86 * 31; // ~15 inches right in X
-const int16_t POS_MOVE_RIGHT_WALL_Y = 14 * 31;       // ~0 inches in Y
+// const int16_t POS_MOVE_RIGHT_WALL_X = 86 * 31; // ~15 inches right in X
+// const int16_t POS_MOVE_RIGHT_WALL_Y = 14 * 31;       // ~0 inches in Y
 
-const int16_t POS_MOVE_DOWN_WALL_X = 86 * 31;    // ~0 inches in X
-const int16_t POS_MOVE_DOWN_WALL_Y = 0 * 31; // ~12 inches down in Y
+// const int16_t POS_MOVE_DOWN_WALL_X = 86 * 31;    // ~0 inches in X
+// const int16_t POS_MOVE_DOWN_WALL_Y = 0 * 31; // ~12 inches down in Y
 
-const int16_t POS_MOVE_OUT_PANTRY_X = 86 * 31;   // ~0 inches in X
-const int16_t POS_MOVE_OUT_PANTRY_Y = 14 * 31; // ~15 inches forward in Y
+// const int16_t POS_MOVE_OUT_PANTRY_X = 86 * 31;   // ~0 inches in X
+// const int16_t POS_MOVE_OUT_PANTRY_Y = 14 * 31; // ~15 inches forward in Y
 
-const int16_t POS_MOVE_TO_CUSTOMER_X = 86 * 31; // ~25 inches right in X
-const int16_t POS_MOVE_TO_CUSTOMER_Y = 26 * 31;       // ~0 inches in Y
+// const int16_t POS_MOVE_TO_CUSTOMER_X = 86 * 31; // ~25 inches right in X
+// const int16_t POS_MOVE_TO_CUSTOMER_Y = 26 * 31;       // ~0 inches in Y
 
-// Position tolerance (how close is "close enough")
-const int16_t POSITION_TOLERANCE = 31 / 2;     // 0.5 inch tolerance
+//Position tolerance (how close is "close enough")
+const int16_t POSITION_TOLERANCE = 2;
 
 
 
@@ -332,6 +338,9 @@ void orientToNorth() {
 bool positionReached = false;
 void ZeroEncoders() {
   bsed.resetEncoderPositions(); 
+  XLimiter.setPosition(0);
+  YLimiter.setPosition(0);
+  
 }
 
 void XDrivePower(int16_t power) {
@@ -434,11 +443,12 @@ uint8_t power2PWM(uint8_t power) { // scaling function
 bool AccelPosition(int16_t Xtarget, int16_t Ytarget) {  
   LPos = -bsed.getEncoderPositionWithoutOverflows(1);
   BPos = bsed.getEncoderPositionWithoutOverflows(2);
-  RPos = bsed.getEncoderPositionWithoutOverflows(3);
+//  RPos = bsed.getEncoderPositionWithoutOverflows(3);
   FPos = -bsed.getEncoderPositionWithoutOverflows(4);
   XDrivePower(constrain(Kp * ((int16_t)XLimiter.calc(Xtarget) - (FPos)), -255, 255)); 
   YDrivePower(constrain(Kp * ((int16_t)YLimiter.calc(Ytarget) - (LPos)), -255, 255)); 
-  return (abs(FPos - Xtarget) < POSITION_TOLERANCE && abs(LPos - Ytarget) < POSITION_TOLERANCE);
+//  Serial.println((int16_t)XLimiter.calc(Xtarget));
+  return (abs(FPos - Xtarget) < 3 && abs(BPos - Xtarget) < 3 && abs(LPos-Ytarget) < 3); //add Rpos later
 }
 
 bool WallAccelPosition(int16_t Xtarget,int16_t Ytarget) {
@@ -449,7 +459,6 @@ bool WallAccelPosition(int16_t Xtarget,int16_t Ytarget) {
   FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255));
   BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255));
   YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //add RPos average later
-//  Serial.println(YLimiter.calc());
   return ((int16_t)XLimiter.calc(Xtarget) == Xtarget && (int16_t)YLimiter.calc(Ytarget) == Ytarget) && bsed.getEncoderVelocity(1) == 0 && bsed.getEncoderVelocity(2) == 0 && bsed.getEncoderVelocity(4) == 0  ;
 }
 // ==============================
@@ -463,15 +472,30 @@ void runStateMachine() {
   // RPos = bsed.getEncoderPositionWithoutOverflows(3);
   // FPos = -bsed.getEncoderPositionWithoutOverflows(4);
 
+  unsigned long currentTime = millis();
+
+  // Calculate the elapsed time
+  unsigned long elapsedTime = currentTime - startTime;
+
+  Serial.print("time: ");
+  Serial.println(elapsedTime);
+
+  if(elapsedTime > 130000){ // Celebrate forced 
+    Serial.println("celebrating");
+    StopDrivePower();
+    activateFan(); // Activate celebration fan
+    state = CELEBRATE;
+  }
+
   switch (state) {
     case INIT:
-      Serial.print("Starting init");
-      ZeroEncoders();
+      Serial.println("Starting init");
+    //  ZeroEncoders();
       state = ORIENT_NORTH;
       break;
 
     case ORIENT_NORTH:
-      Serial.print("Starting orient");
+      Serial.println("orient");
       // Placeholder for orientation logic
       // delay(1000); // Simulate orientation
       ZeroEncoders(); // FIRST ZERO ENCODER
@@ -479,46 +503,47 @@ void runStateMachine() {
       break;
 
     case DRIVE_DOWN:
-      Serial.print("Starting drive down");
+      Serial.println("drive down");
       // moveForward(POS_DRIVE_DOWN_X, POS_DRIVE_DOWN_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(POS_DRIVE_DOWN_X, POS_DRIVE_DOWN_Y)) {
-        StopDrivePower();
+      if (WallAccelPosition(0,-6*31)) {
+      ZeroEncoders(); // FIRST ZERO ENCODER
+      //  StopDrivePower();
         state = DRIVE_LEFT_INIT;
       }
       break;
 
     case DRIVE_LEFT_INIT:
-      Serial.print("Starting drive left");
+      Serial.println("drive left");
       // moveLeft(POS_DRIVE_LEFT_INIT_X, POS_DRIVE_LEFT_INIT_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget);
 
-      if (WallAccelPosition(POS_DRIVE_LEFT_INIT_X, POS_DRIVE_LEFT_INIT_Y)) {
-        StopDrivePower();
-
+      if (WallAccelPosition(-6*31,0)) {
+      //  StopDrivePower();
         state = MOVE_UP;
-      }
       ZeroEncoders(); // SECOND ZERO ENCODER(OFFICIAL ZERO) 
+      }
       break;
 
     case MOVE_UP:
-      Serial.print("Starting move up");
+      Serial.println("move up");
       // moveForward(POS_MOVE_UP_X, POS_MOVE_UP_Y);
       // positionReached = AccelPosition(xTarget, yTarget);
     
-      if (AccelPosition(POS_MOVE_UP_X, POS_MOVE_UP_Y)) {
-        StopDrivePower();
+      if (AccelPosition(0,14*31)) {
+    //    StopDrivePower();
     
         state = DRIVE_RIGHT;
       }
       break;
 
     case DRIVE_RIGHT:
-      
+       Serial.println("drive right");
+ 
       // moveRight(POS_DRIVE_RIGHT_X, POS_DRIVE_RIGHT_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget);
       
-      if (WallAccelPosition(POS_DRIVE_RIGHT_X, POS_DRIVE_RIGHT_Y)) {
+      if (WallAccelPosition(86*31,14*31)) {
         StopDrivePower();
       
         state = DRIVE_FORWARD;
@@ -526,10 +551,10 @@ void runStateMachine() {
       break;
 
     case DRIVE_FORWARD:
-     
+       Serial.println("drive forward");
       // moveForward(POS_DRIVE_FORWARD_X, POS_DRIVE_FORWARD_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(POS_DRIVE_FORWARD_X, POS_DRIVE_FORWARD_Y)) {
+      if (WallAccelPosition(86*31,26*31)) {
         StopDrivePower();
   
         state = PUSH_POT;
@@ -537,20 +562,21 @@ void runStateMachine() {
       break;
 
     case PUSH_POT:
-     
+       Serial.println("push pot");
       // moveLeft(POS_PUSH_POT_X, POS_PUSH_POT_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(POS_PUSH_POT_X, POS_PUSH_POT_Y)) {
+      if (WallAccelPosition(19*31, 26*31)) {
         StopDrivePower();
         state = DRIVE_DOWN_IGNITE;
       }
       break;
 
     case DRIVE_DOWN_IGNITE:
-     
+       Serial.println("down ignite");
+
       // moveBackward(POS_DRIVE_DOWN_IGNITE_X, POS_DRIVE_DOWN_IGNITE_Y);
       // positionReached = AccelPosition(xTarget, yTarget);
-      if (AccelPosition(POS_DRIVE_DOWN_IGNITE_X, POS_DRIVE_DOWN_IGNITE_Y)) {
+      if (AccelPosition(19*31,17*31)) {
         StopDrivePower();
     
         state = MOVE_TO_IGNITER;
@@ -558,16 +584,19 @@ void runStateMachine() {
       break;
 
     case MOVE_TO_IGNITER:
-     
+       Serial.println("to igniter");
+
       // moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y)) {
+      if (WallAccelPosition(0,17*31)) {
         StopDrivePower();
         state = PRESS_IGNITER;
       }
       break;
 
     case PRESS_IGNITER:
+      Serial.println("press");
+
       // Use the servo to press the igniter
       pressIgniter();
     
@@ -575,10 +604,11 @@ void runStateMachine() {
       break;
 
     case MOVE_RIGHT_BURNER:
-    
+      Serial.println("right burner");
+
       // moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
       // positionReached = AccelPosition(xTarget, yTarget);
-      if (AccelPosition(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y)) {
+      if (AccelPosition(4*31,17*31)) {
         StopDrivePower();
   
         state = MOVE_UP_BURNER;
@@ -586,10 +616,10 @@ void runStateMachine() {
       break;
 
     case MOVE_UP_BURNER:
-     
+      Serial.println("up burner");
       // moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y)) {
+      if (WallAccelPosition(4*31,26*31)) {
         StopDrivePower();
        
         state = DROP_BALL;
@@ -597,17 +627,18 @@ void runStateMachine() {
       break;
 
     case DROP_BALL:
-      // Use the servo to drop the ball
+      Serial.println("dropping");
+  // Use the servo to drop the ball
       dropBall();
   
       state = MOVE_BACK;
       break;
 
     case MOVE_BACK:
-     
+     Serial.println("MB");
       // moveBackward(POS_MOVE_BACK_X, POS_MOVE_BACK_Y);
       // positionReached = AccelPosition(xTarget, yTarget);
-      if (AccelPosition(POS_MOVE_BACK_X, POS_MOVE_BACK_Y)) {
+      if (AccelPosition(4*31,14*31)) {
         StopDrivePower();
         
         state = MOVE_RIGHT_WALL;
@@ -615,10 +646,11 @@ void runStateMachine() {
       break;
 
     case MOVE_RIGHT_WALL:
+    Serial.println("MRW");
       // moveRight(POS_MOVE_RIGHT_WALL_X, POS_MOVE_RIGHT_WALL_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget);
 
-      if (WallAccelPosition(POS_MOVE_RIGHT_WALL_X, POS_MOVE_RIGHT_WALL_Y)) {
+      if (WallAccelPosition(86*31,14*31)) {
         StopDrivePower();
 
         state = MOVE_DOWN_WALL;
@@ -626,10 +658,10 @@ void runStateMachine() {
       break;
 
     case MOVE_DOWN_WALL:
-     
+     Serial.println("MDW");
       // moveBackward(POS_MOVE_DOWN_WALL_X, POS_MOVE_DOWN_WALL_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget);
-      if (WallAccelPosition(POS_MOVE_DOWN_WALL_X, POS_MOVE_DOWN_WALL_Y)) {
+      if (WallAccelPosition(86*31,0)) {
         StopDrivePower();
    
         state = START_LAUNCH;
@@ -637,6 +669,7 @@ void runStateMachine() {
       break;
 
     case START_LAUNCH:
+    Serial.println("SL");
       // Simulate starting the launcher
       startLauncher();
    
@@ -644,9 +677,7 @@ void runStateMachine() {
       break;
 
     case LAUNCHING:
-      // Continue launching until timer expires
-      if (global_timer2 >= 90) { // 90 seconds (1 min 30 sec)
-    
+      if (elapsedTime >= 90000) { // 90 seconds (1 min 30 sec)
         state = STOP_LAUNCH;
       }
       break;
@@ -659,10 +690,10 @@ void runStateMachine() {
       break;
 
     case MOVE_OUT_PANTRY:
-     
+     Serial.println("MOP");
       // moveForward(POS_MOVE_OUT_PANTRY_X, POS_MOVE_OUT_PANTRY_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget); // still touching wall when moving out 
-      if (WallAccelPosition(POS_MOVE_OUT_PANTRY_X, POS_MOVE_OUT_PANTRY_Y)) {
+      if (WallAccelPosition(86*31,14*31)) {
         StopDrivePower();
    
         state = MOVE_LEFT_WALL;
@@ -670,10 +701,10 @@ void runStateMachine() {
       break;
 
     case MOVE_LEFT_WALL:
-     
+     Serial.println("MLW");
       // moveLeft(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget); 
-      if (WallAccelPosition(POS_MOVE_LEFT_X, POS_MOVE_LEFT_Y)) {
+      if (WallAccelPosition(86*31,26*31)) {
         StopDrivePower();
        
         state = POSITION_UNDER_BURNER;
@@ -681,20 +712,20 @@ void runStateMachine() {
       break;
 
     case POSITION_UNDER_BURNER:
-    
+    Serial.println("PUB");
       // moveRight(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y);
       // positionReached = AccelPosition(xTarget, yTarget);
-      if (AccelPosition(POS_MOVE_RIGHT_BURNER_X, POS_MOVE_RIGHT_BURNER_Y)) {
+      if (AccelPosition(4*31,17*31)) {
         StopDrivePower();
         state = MOVE_TO_BURNER_WALL;
       }
       break;
 
     case MOVE_TO_BURNER_WALL:
-    
+    Serial.println("MBW");
       // moveForward(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget); 
-      if (WallAccelPosition(POS_MOVE_UP_BURNER_X, POS_MOVE_UP_BURNER_Y)) {
+      if (WallAccelPosition(4*31,26*31)) {
         StopDrivePower();
        
         state = MOVE_POT_TO_CUSTOMER;
@@ -702,10 +733,10 @@ void runStateMachine() {
       break;
 
     case MOVE_POT_TO_CUSTOMER:
-     
+     Serial.println("MPC");
       // moveRight(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y);
       // positionReached = WallAccelPosition(xTarget, yTarget); 
-      if (WallAccelPosition(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y)) {
+      if (WallAccelPosition(86*31,26*31)) {
         StopDrivePower();
       
         state = CELEBRATE;
@@ -713,6 +744,7 @@ void runStateMachine() {
       break;
 
     case CELEBRATE:
+    Serial.println("celebrating");
       StopDrivePower();
       activateFan(); // Activate celebration fan
       break;
@@ -725,8 +757,8 @@ void runStateMachine() {
 void setup() {
     // Orient Setup
     // Wire.begin();
-    // Serial.begin(9600);
-    // Serial.println("\nTCAScanner ready!");
+    Serial.begin(115200);
+    Serial.println("\nTCAScanner ready!");
 
     // Serial.println("VL53L0X ToF Test"); Serial.println("");
     
@@ -793,17 +825,21 @@ void setup() {
     // delay(1000); // Debounce delay
 
     // With TimerInterrupt equivalents
-    ITimer1.init();
-    ITimer2.init();
-    // Set Timer1 to trigger every 2 minutes 10 seconds (130 seconds)
-    ITimer1.attachInterruptInterval(130000, timer1ISR); // time in milliseconds
-    // Set Timer2 to trigger every 1 second
-    ITimer2.attachInterruptInterval(1000, timer2ISR); // time in milliseconds
+    // ITimer1.init();
+    // ITimer2.init();
+    // // Set Timer1 to trigger every 2 minutes 10 seconds (130 seconds)
+    // ITimer1.attachInterrupt(1/130000, timer1ISR); // time in milliseconds
+    // // Set Timer2 to trigger every 1 second
+    // ITimer2.attachInterrupt(0.001, timer2ISR); // time in milliseconds
 
     // Timer1.initialize(130000000); // 2 minutes 10 seconds 
     // Timer2.initialize(1000); // 1 second
     // Timer1.attachInterrupt(timer1ISR);
     // Timer2.attachInterrupt(timer2ISR);
+    Serial.println("setup complete");
+
+    Serial.println("starting timer");
+    startTime = millis();
 }
 
 void loop() {
