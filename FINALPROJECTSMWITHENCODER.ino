@@ -804,10 +804,10 @@ void setup() {
     igniterServo.write(IGNITER_RELEASED_POS);
     ballDropServo.write(BALL_DROP_CLOSED_POS);
     // Optional: Wait for start button press
-    // while (digitalRead(START_BUTTON) == HIGH) {
-    //     // Wait for button press
-    //     delay(10);
-    // }
+    while (digitalRead(START_BUTTON) == HIGH) {
+        // Wait for button press
+        delay(10);
+    }
     // delay(1000); // Debounce delay
 
     // With TimerInterrupt equivalents
