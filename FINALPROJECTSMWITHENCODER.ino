@@ -52,7 +52,7 @@ void orient(void) {
       oriented = true;
       break;
     }
-    SpinDrivePower(4);
+    SpinDrivePower(7);
   }
 }
 // ==============================
@@ -60,11 +60,8 @@ void orient(void) {
 // ==============================
 ByteSizedEncoderDecoder bsed = ByteSizedEncoderDecoder(&Wire, 0x0F);
 
-Derivs_Limiter YLimiter = Derivs_Limiter(12000, 300, 400); // velocity, increasing acceleration, decreasing acceleration
-Derivs_Limiter XLimiter = Derivs_Limiter(35000, 1100, 900); // velocity, increasing acceleration, decreasing acceleration
-
-//int16_t xTarget = 0;
-//int16_t yTarget = 0;
+Derivs_Limiter YLimiter = Derivs_Limiter(30000, 1000, 900); // velocity, increasing acceleration, decreasing acceleration
+Derivs_Limiter XLimiter = Derivs_Limiter(30000, 1000, 900); // velocity, increasing acceleration, decreasing acceleration
 
 // ==============================
 // Pin Definitions for 3-Wheel Drive
@@ -78,7 +75,7 @@ Derivs_Limiter XLimiter = Derivs_Limiter(35000, 1100, 900); // velocity, increas
 
 
 // Pin Definitions from the provided sheet
-#define FAN_PIN         8     // Celebration fan / LED
+#define EYE_PIN         8     // Servo 3 EYE
 #define IGNITER_PIN     10    // Servo 2 igniter
 #define BALL_DROP_PIN   9     // Servo 1 ball drop
 #define LAUNCHER_MOTOR  3     // Launcher Motor
@@ -121,7 +118,6 @@ bool pressed = false;
 bool dropped = false;
 unsigned long servostarttime;
 
-
 // ==============================
 // State Definitions
 // ==============================
@@ -158,117 +154,15 @@ enum State {
 State state = INIT;
 
 // ==============================
-// Global Timing Variables (ms)
-// ==============================
-// volatile unsigned long global_timer1 = 0;  // Main match timer (2 min 10 sec)
-// volatile unsigned long global_timer2 = 0;  // Launching timer (~1 min 30 sec)
-
-// TimerInterrupt ITimer1;
-// TimerInterrupt ITimer2;
-
-// void timer1ISR() {
-//     // Stop all robot movement
-//     StopDrivePower();
-    
-//     // Go directly to celebration
-//     state = CELEBRATE;
-    
-//     // Or just directly call celebrate actions
-//     activateFan();
-    
-//     // Optionally detach the interrupt since it only needs to fire once
-//     // Timer1.detachInterrupt(); // Old way
-//     ITimer1.detachInterrupt(); // New way using TimerInterrupt library
-// }
-
-// void timer2ISR() {
-//     global_timer2++;
-//     Serial.println("tick");
-// }
-
-
-
-// const int16_t POS_DRIVE_DOWN_X = 0;         // ~0 inches in X
-// const int16_t POS_DRIVE_DOWN_Y = 0 * 31;  // ~6 inches down in Y
-
-// const int16_t POS_DRIVE_LEFT_INIT_X = 0 * 31; // ~6 inches left in X
-// const int16_t POS_DRIVE_LEFT_INIT_Y = 0;        // ~0 inches in Y
-
-// const int16_t POS_MOVE_UP_X = 0;           // ~0 inches in X
-// const int16_t POS_MOVE_UP_Y = 14 * 31;     // ~15 inches up in Y
-
-// const int16_t POS_DRIVE_RIGHT_X = 86 * 31; // ~25 inches right in X
-// const int16_t POS_DRIVE_RIGHT_Y = 14 * 31;       // ~0 inches in Y
-
-// const int16_t POS_DRIVE_FORWARD_X = 86 * 31;     // ~0 inches in X
-// const int16_t POS_DRIVE_FORWARD_Y = 26 * 31; // ~18 inches forward in Y
-
-// const int16_t POS_PUSH_POT_X = 19 * 31;   // ~22 inches left in X
-// const int16_t POS_PUSH_POT_Y = 26 * 31;          // ~0 inches in Y
-
-// const int16_t POS_DRIVE_DOWN_IGNITE_X = 19 * 31; // ~0 inches in X
-// const int16_t POS_DRIVE_DOWN_IGNITE_Y = 17 * 31; // ~8 inches down in Y
-
-// const int16_t POS_MOVE_LEFT_X = 0 * 31;  // ~13 inches left in X
-// const int16_t POS_MOVE_LEFT_Y = 17 * 31;         // ~0 inches in Y
-
-// const int16_t POS_MOVE_RIGHT_BURNER_X = 4 * 31; // ~7 inches right in X
-// const int16_t POS_MOVE_RIGHT_BURNER_Y = 17 * 31;      // ~0 inches in Y
-
-// const int16_t POS_MOVE_UP_BURNER_X = 4 * 31;    // ~0 inches in X
-// const int16_t POS_MOVE_UP_BURNER_Y = 26 * 31; // ~12 inches up in Y
-
-// const int16_t POS_MOVE_BACK_X = 4 * 31;         // ~0 inches in X
-// const int16_t POS_MOVE_BACK_Y = 14 * 31;  // ~10 inches back in Y
-
-// const int16_t POS_MOVE_RIGHT_WALL_X = 86 * 31; // ~15 inches right in X
-// const int16_t POS_MOVE_RIGHT_WALL_Y = 14 * 31;       // ~0 inches in Y
-
-// const int16_t POS_MOVE_DOWN_WALL_X = 86 * 31;    // ~0 inches in X
-// const int16_t POS_MOVE_DOWN_WALL_Y = 0 * 31; // ~12 inches down in Y
-
-// const int16_t POS_MOVE_OUT_PANTRY_X = 86 * 31;   // ~0 inches in X
-// const int16_t POS_MOVE_OUT_PANTRY_Y = 14 * 31; // ~15 inches forward in Y
-
-// const int16_t POS_MOVE_TO_CUSTOMER_X = 86 * 31; // ~25 inches right in X
-// const int16_t POS_MOVE_TO_CUSTOMER_Y = 26 * 31;       // ~0 inches in Y
-
-//Position tolerance (how close is "close enough")
-const int16_t POSITION_TOLERANCE = 2;
-
-
-
-//MOVE FUNCTIONS
-
-// void moveForward(int16_t x, int16_t y) {
-//   xTarget = x;
-//   yTarget = y;
-// }
-
-// void moveBackward(int16_t x, int16_t y) {
-//   xTarget = x;
-//   yTarget = y;
-// }
-
-// void moveLeft(int16_t x, int16_t y) {
-//   xTarget = x;
-//   yTarget = y;
-// }
-
-// void moveRight(int16_t x, int16_t y) {
-//   xTarget = x;
-//   yTarget = y;
-// }
-
-// ==============================
 // Action Functions
 // ==============================
+
 void activateFan() {
-    digitalWrite(FAN_PIN, HIGH);
+    digitalWrite(EYE_PIN, HIGH);
 }
 
 void deactivateFan() {
-    digitalWrite(FAN_PIN, LOW);
+    digitalWrite(EYE_PIN, LOW);
 }
 
 // Updated servo control functions
@@ -312,7 +206,7 @@ bool dropBall() {
 
 
 void startLauncher() {
-    digitalWrite(LAUNCHER_MOTOR, HIGH);
+    analogWrite(LAUNCHER_MOTOR, 30);
     digitalWrite(LAUNCHER_LED, HIGH);
 }
 
@@ -322,11 +216,11 @@ void stopLauncher() {
 }
 
 // Function to detect orientation using ultrasonic sensors
-void orientToNorth() {
-    // Placeholder for orientation logic
-    // Could use ultrasonic sensors to equalize distances to walls
-    orient();
-}
+// void orientToNorth() {
+//     // Placeholder for orientation logic
+//     // Could use ultrasonic sensors to equalize distances to walls
+//     orient();
+// }
 
 
 // ==============================
@@ -343,24 +237,24 @@ void ZeroEncoders() {
   
 }
 
-void XDrivePower(int16_t power) {
-  if (power == 0) { // don't move
-    analogWrite(FrontMotorPWM, 0);
-    analogWrite(BackMotorPWM, 0);
-  } else if (power < 0) { // go left (-X < )
-    digitalWrite(FrontMotorDIR, HIGH);
-    digitalWrite(BackMotorDIR, HIGH);
-    uint8_t pwmValue = power2PWM(abs(power));
-    analogWrite(FrontMotorPWM, pwmValue);
-    analogWrite(BackMotorPWM, pwmValue);
-  } else {  // go right (+X > )
-    digitalWrite(FrontMotorDIR, LOW);
-    digitalWrite(BackMotorDIR, LOW);
-    uint8_t pwmValue = power2PWM(abs(power));
-    analogWrite(FrontMotorPWM, pwmValue);
-    analogWrite(BackMotorPWM, pwmValue);
-  }
-}
+// void XDrivePower(int16_t power) {
+//   if (power == 0) { // don't move
+//     analogWrite(FrontMotorPWM, 0);
+//     analogWrite(BackMotorPWM, 0);
+//   } else if (power < 0) { // go left (-X < )
+//     digitalWrite(FrontMotorDIR, HIGH);
+//     digitalWrite(BackMotorDIR, HIGH);
+//     uint8_t pwmValue = power2PWM(abs(power));
+//     analogWrite(FrontMotorPWM, pwmValue);
+//     analogWrite(BackMotorPWM, pwmValue);
+//   } else {  // go right (+X > )
+//     digitalWrite(FrontMotorDIR, LOW);
+//     digitalWrite(BackMotorDIR, LOW);
+//     uint8_t pwmValue = power2PWM(abs(power));
+//     analogWrite(FrontMotorPWM, pwmValue);
+//     analogWrite(BackMotorPWM, pwmValue);
+//   }
+// }
 
 void FDrivePower(int16_t power) {
   if (power == 0) { // don't move
@@ -411,19 +305,19 @@ void SpinDrivePower(int16_t power) {
   } else if (power < 0) { // spin CW
     digitalWrite(FrontMotorDIR, LOW);
     digitalWrite(BackMotorDIR, HIGH);
-    digitalWrite(SideMotorsDIR, LOW);  //REMOVE SOMEDAY
+//    digitalWrite(SideMotorsDIR, LOW);  //REMOVE SOMEDAY
     uint8_t pwmValue = power2PWM(abs(power));
     analogWrite(FrontMotorPWM, pwmValue);
     analogWrite(BackMotorPWM, pwmValue);
-    analogWrite(SideMotorsPWM, pwmValue); //REMOVE SOMEDAY
+//    analogWrite(SideMotorsPWM, pwmValue); //REMOVE SOMEDAY
   } else {  // spin CCW
     digitalWrite(FrontMotorDIR, HIGH);
     digitalWrite(BackMotorDIR, LOW);
-    digitalWrite(SideMotorsDIR, HIGH); //REMOVE SOMEDAY
+//    digitalWrite(SideMotorsDIR, HIGH); //REMOVE SOMEDAY
     uint8_t pwmValue = power2PWM(abs(power));
     analogWrite(FrontMotorPWM, pwmValue);
     analogWrite(BackMotorPWM, pwmValue);
-    analogWrite(SideMotorsPWM, pwmValue); //REMOVE SOMEDAY
+//    analogWrite(SideMotorsPWM, pwmValue); //REMOVE SOMEDAY
 
   }
 }
@@ -443,25 +337,25 @@ uint8_t power2PWM(uint8_t power) { // scaling function
 // Acceleration Logic
 // ==============================
 bool AccelPosition(int16_t Xtarget,int16_t Ytarget) {  
-  LPos = -bsed.getEncoderPositionWithoutOverflows(1);
-  BPos = bsed.getEncoderPositionWithoutOverflows(2);
-//  RPos = bsed.getEncoderPositionWithoutOverflows(3);
-  FPos = -bsed.getEncoderPositionWithoutOverflows(4);
+  BPos = bsed.getEncoderPositionWithoutOverflows(1);
+  RPos = bsed.getEncoderPositionWithoutOverflows(2);
+  FPos = -bsed.getEncoderPositionWithoutOverflows(3);
+  LPos = -bsed.getEncoderPositionWithoutOverflows(4);
   FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255)); 
-  BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255)); 
-  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //add RPos average later
-  return (abs(FPos - Xtarget) < 3 && abs(BPos - Xtarget) < 3 && abs(LPos-Ytarget) < 3); //add Rpos later
+  BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255));
+  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-((LPos+RPos)/2)),-255, 255)); //add RPos average later
+  return (abs(FPos - Xtarget) < 2 && abs(BPos - Xtarget) < 2 && abs(LPos-Ytarget) < 2 && abs(RPos-Ytarget) < 2); //added Rpos
 }
 
 bool WallAccelPosition(int16_t Xtarget,int16_t Ytarget) {  
-  LPos = -bsed.getEncoderPositionWithoutOverflows(1);
-  BPos = bsed.getEncoderPositionWithoutOverflows(2);
-//  RPos = bsed.getEncoderPositionWithoutOverflows(3);
-  FPos = -bsed.getEncoderPositionWithoutOverflows(4);
+  BPos = bsed.getEncoderPositionWithoutOverflows(1);
+  RPos = bsed.getEncoderPositionWithoutOverflows(2);
+  FPos = -bsed.getEncoderPositionWithoutOverflows(3);
+  LPos = -bsed.getEncoderPositionWithoutOverflows(4);
   FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255)); 
   BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255)); 
-  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //add RPos average later
-  return ((int16_t)XLimiter.calc(Xtarget) == Xtarget && (int16_t)YLimiter.calc(Ytarget) == Ytarget) && bsed.getEncoderVelocity(1) == 0 && bsed.getEncoderVelocity(2) == 0 && bsed.getEncoderVelocity(4) == 0  ;
+  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-((LPos+RPos)/2)),-255, 255)); //added RPos average
+  return ((int16_t)XLimiter.calc(Xtarget) == Xtarget && (int16_t)YLimiter.calc(Ytarget) == Ytarget) && bsed.getEncoderVelocity(1) == 0 && bsed.getEncoderVelocity(2) == 0 && bsed.getEncoderVelocity(3) == 0 && bsed.getEncoderVelocity(4) == 0;
 }
 // ==============================
 // State Machine 
@@ -710,32 +604,7 @@ void setup() {
     // Orient Setup
     // Wire.begin();
     Serial.begin(115200);
-    delay(5000);
-    //Serial.println("\nTCAScanner ready!");
-
-
-    // Serial.println("VL53L0X ToF Test"); Serial.println("");
-    
-    // /* Initialise the 1st sensor */
-    // tcaselect(2);
-    // if(!lox1.begin()) {
-    //   /* There was a problem detecting the HMC5883 ... check your connections */
-    //   Serial.println("Ooops, no VL53L0X detected ... Check your wiring!");
-    //   while(1);
-    // }
-    
-    // /* Initialise the 2nd sensor */
-    // tcaselect(7);
-    // if(!lox2.begin()){
-    //   /* There was a problem detecting the HMC5883 ... check your connections */
-    //   Serial.println("Ooops, no VL53L0X detected ... Check your wiring!");
-    //   while(1);
-    // }
-
-    // pinMode(trigPin, OUTPUT);
-    // pinMode(echoPin, INPUT);
-    // Motor pins for 3-wheel drive
-
+//    delay(5000);
 
     // ORIENTATION SETUP 
 
@@ -778,7 +647,7 @@ void setup() {
     pinMode(LAUNCHER_LED, OUTPUT);
     pinMode(IGNITER_PIN, OUTPUT);
     pinMode(BALL_DROP_PIN, OUTPUT);
-    pinMode(FAN_PIN, OUTPUT);
+    pinMode(EYE_PIN, OUTPUT);
     pinMode(START_BUTTON, INPUT_PULLUP);
 
     ballDropServo.attach(BALL_DROP_PIN);
@@ -789,7 +658,7 @@ void setup() {
     digitalWrite(LAUNCHER_LED, LOW);
     digitalWrite(IGNITER_PIN, LOW);
     digitalWrite(BALL_DROP_PIN, LOW);
-    digitalWrite(FAN_PIN, LOW);
+    digitalWrite(EYE_PIN, LOW);
     
     // Initialize encoder control
     Wire.begin();  // Use default SDA and SCL pins
@@ -808,20 +677,6 @@ void setup() {
         // Wait for button press
         delay(10);
     }
-    // delay(1000); // Debounce delay
-
-    // With TimerInterrupt equivalents
-    // ITimer1.init();
-    // ITimer2.init();
-    // // Set Timer1 to trigger every 2 minutes 10 seconds (130 seconds)
-    // ITimer1.attachInterrupt(1/130000, timer1ISR); // time in milliseconds
-    // // Set Timer2 to trigger every 1 second
-    // ITimer2.attachInterrupt(0.001, timer2ISR); // time in milliseconds
-
-    // Timer1.initialize(130000000); // 2 minutes 10 seconds 
-    // Timer2.initialize(1000); // 1 second
-    // Timer1.attachInterrupt(timer1ISR);
-    // Timer2.attachInterrupt(timer2ISR);
     Serial.println("setup complete");
 
     Serial.println("starting timer");
