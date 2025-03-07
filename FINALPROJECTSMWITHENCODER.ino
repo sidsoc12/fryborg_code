@@ -45,14 +45,14 @@ void orient(void) {
     Serial.print(" Sensor3 = ");
     Serial.println(distance3);
 
-    if((distance1 > (distance2 - 25)) && (distance1 < (distance2 + 25)) && (distance3 < 300) && (distance1 > 500)) {
+    if((distance1 > (distance2 - 35)) && (distance1 < (distance2 + 35)) && (distance3 < 300) && (distance1 > 500)) {
       StopDrivePower();
       Serial.print(distance1);
       Serial.println("Oriented!");
       oriented = true;
       break;
     }
-    SpinDrivePower(7);
+    SpinDrivePower(14);
   }
 }
 // ==============================
@@ -60,8 +60,8 @@ void orient(void) {
 // ==============================
 ByteSizedEncoderDecoder bsed = ByteSizedEncoderDecoder(&Wire, 0x0F);
 
-Derivs_Limiter YLimiter = Derivs_Limiter(30000, 1000, 900); // velocity, increasing acceleration, decreasing acceleration
-Derivs_Limiter XLimiter = Derivs_Limiter(30000, 1000, 900); // velocity, increasing acceleration, decreasing acceleration
+Derivs_Limiter YLimiter = Derivs_Limiter(40000, 1200, 1000); // velocity, increasing acceleration, decreasing acceleration
+Derivs_Limiter XLimiter = Derivs_Limiter(40000, 1200, 1000); // velocity, increasing acceleration, decreasing acceleration
 
 // ==============================
 // Pin Definitions for 3-Wheel Drive
@@ -237,25 +237,6 @@ void ZeroEncoders() {
   
 }
 
-// void XDrivePower(int16_t power) {
-//   if (power == 0) { // don't move
-//     analogWrite(FrontMotorPWM, 0);
-//     analogWrite(BackMotorPWM, 0);
-//   } else if (power < 0) { // go left (-X < )
-//     digitalWrite(FrontMotorDIR, HIGH);
-//     digitalWrite(BackMotorDIR, HIGH);
-//     uint8_t pwmValue = power2PWM(abs(power));
-//     analogWrite(FrontMotorPWM, pwmValue);
-//     analogWrite(BackMotorPWM, pwmValue);
-//   } else {  // go right (+X > )
-//     digitalWrite(FrontMotorDIR, LOW);
-//     digitalWrite(BackMotorDIR, LOW);
-//     uint8_t pwmValue = power2PWM(abs(power));
-//     analogWrite(FrontMotorPWM, pwmValue);
-//     analogWrite(BackMotorPWM, pwmValue);
-//   }
-// }
-
 void FDrivePower(int16_t power) {
   if (power == 0) { // don't move
     analogWrite(FrontMotorPWM, 0);
@@ -338,23 +319,23 @@ uint8_t power2PWM(uint8_t power) { // scaling function
 // ==============================
 bool AccelPosition(int16_t Xtarget,int16_t Ytarget) {  
   BPos = bsed.getEncoderPositionWithoutOverflows(1);
-  RPos = bsed.getEncoderPositionWithoutOverflows(2);
+//  RPos = bsed.getEncoderPositionWithoutOverflows(2);
   FPos = -bsed.getEncoderPositionWithoutOverflows(3);
   LPos = -bsed.getEncoderPositionWithoutOverflows(4);
   FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255)); 
   BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255));
-  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-((LPos+RPos)/2)),-255, 255)); //add RPos average later
-  return (abs(FPos - Xtarget) < 2 && abs(BPos - Xtarget) < 2 && abs(LPos-Ytarget) < 2 && abs(RPos-Ytarget) < 2); //added Rpos
+  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //add RPos average later
+  return (abs(FPos - Xtarget) < 7 && abs(BPos - Xtarget) < 7 && abs(LPos-Ytarget) < 7); //added Rpos
 }
 
 bool WallAccelPosition(int16_t Xtarget,int16_t Ytarget) {  
   BPos = bsed.getEncoderPositionWithoutOverflows(1);
-  RPos = bsed.getEncoderPositionWithoutOverflows(2);
+//  RPos = bsed.getEncoderPositionWithoutOverflows(2);
   FPos = -bsed.getEncoderPositionWithoutOverflows(3);
   LPos = -bsed.getEncoderPositionWithoutOverflows(4);
   FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255)); 
   BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255)); 
-  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-((LPos+RPos)/2)),-255, 255)); //added RPos average
+  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //added RPos average
   return ((int16_t)XLimiter.calc(Xtarget) == Xtarget && (int16_t)YLimiter.calc(Ytarget) == Ytarget) && bsed.getEncoderVelocity(1) == 0 && bsed.getEncoderVelocity(2) == 0 && bsed.getEncoderVelocity(3) == 0 && bsed.getEncoderVelocity(4) == 0;
 }
 // ==============================
@@ -456,14 +437,14 @@ void runStateMachine() {
 
     case DRIVE_DOWN_IGNITE:
       Serial.println("down ignite");
-      if (AccelPosition(3*31,-15*31)) {
+      if (AccelPosition(3*31,-12*31)) {
         state = MOVE_TO_IGNITER;
       }
       break;
 
     case MOVE_TO_IGNITER:
        Serial.println("to igniter");
-      if (WallAccelPosition(-20*31,-15*31)) {
+      if (WallAccelPosition(-20*31,-12*31)) {
         ZeroEncoders();
         StopDrivePower();
         state = PRESS_IGNITER;
@@ -691,5 +672,5 @@ void loop() {
     runStateMachine();
     
     // Small delay to prevent CPU hogging
-    delay(1);
+    // delay(1);
 }
