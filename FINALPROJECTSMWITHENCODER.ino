@@ -1,3 +1,4 @@
+#define USE_TIMER_2 true
 #include <Arduino.h>
 #include <TimerInterrupt.h>
 #include <Wire.h>
@@ -33,26 +34,26 @@ void orient(void) {
   while (!oriented) {
     tcaselect(2);
     distance1 = sensor1.readRangeSingleMillimeters();
-    Serial.print("Sensor1 = ");
-    Serial.print(distance1);
+    //Serial.print("Sensor1 = ");
+    //Serial.print(distance1);
 
     tcaselect(7);
     distance2 = sensor2.readRangeSingleMillimeters();
-    Serial.print(" Sensor2 = ");
-    Serial.print(distance2);
+    //Serial.print(" Sensor2 = ");
+    //Serial.print(distance2);
     tcaselect(5);
     distance3 = sensor3.readRangeSingleMillimeters();
-    Serial.print(" Sensor3 = ");
-    Serial.println(distance3);
+    //Serial.print(" Sensor3 = ");
+    //Serial.println(distance3);
 
     if((distance1 > (distance2 - 35)) && (distance1 < (distance2 + 35)) && (distance3 < 300) && (distance1 > 500)) {
       StopDrivePower();
-      Serial.print(distance1);
-      Serial.println("Oriented!");
+    //  Serial.print(distance1);
+    //  Serial.println("Oriented!");
       oriented = true;
       break;
     }
-    SpinDrivePower(14);
+    SpinDrivePower(19);
   }
 }
 // ==============================
@@ -88,12 +89,16 @@ Derivs_Limiter XLimiter = Derivs_Limiter(40000, 1200, 1000); // velocity, increa
 // ==============================
 Servo igniterServo;    // Create servo object for igniter
 Servo ballDropServo;   // Create servo object for ball drop
+Servo eyeServo;        //Create servo object for eye
 
 // Define servo positions
 #define IGNITER_PRESSED_POS   20   // Servo angle for pressed position (adjust as needed)
 #define IGNITER_RELEASED_POS  120  // Servo angle for released position (adjust as needed)
 #define BALL_DROP_OPEN_POS    0   // Servo angle for open position (adjust as needed)
 #define BALL_DROP_CLOSED_POS  140  // Servo angle for closed position (adjust as needed)
+#define EYE_CLOSED_POS 180  //Servo angle for open position
+#define EYE_OPEN_POS 30  //Servo angle for closed position
+#define TIMER_INTERVAL_MS  500 //time interval for blinking
 
 // ==============================
 // Motor Control Parameters
@@ -116,6 +121,7 @@ int16_t BPos = 0;
 
 bool pressed = false;
 bool dropped = false;
+volatile bool closed = false;
 unsigned long servostarttime;
 
 // ==============================
@@ -157,12 +163,18 @@ State state = INIT;
 // Action Functions
 // ==============================
 
-void activateFan() {
-    digitalWrite(EYE_PIN, HIGH);
+void eyeOpen() {
+  eyeServo.write(EYE_OPEN_POS);
 }
 
-void deactivateFan() {
-    digitalWrite(EYE_PIN, LOW);
+void eyeBlink() {
+   if (!closed) {
+    eyeServo.write(EYE_CLOSED_POS);
+    closed = true;
+  } else {
+    eyeServo.write(EYE_OPEN_POS);
+    closed = false;
+  }
 }
 
 // Updated servo control functions
@@ -206,7 +218,7 @@ bool dropBall() {
 
 
 void startLauncher() {
-    analogWrite(LAUNCHER_MOTOR, 30);
+    analogWrite(LAUNCHER_MOTOR, 19);
     digitalWrite(LAUNCHER_LED, HIGH);
 }
 
@@ -214,14 +226,6 @@ void stopLauncher() {
     digitalWrite(LAUNCHER_MOTOR, LOW);
     digitalWrite(LAUNCHER_LED, LOW);
 }
-
-// Function to detect orientation using ultrasonic sensors
-// void orientToNorth() {
-//     // Placeholder for orientation logic
-//     // Could use ultrasonic sensors to equalize distances to walls
-//     orient();
-// }
-
 
 // ==============================
 // Motor Control Functions
@@ -234,10 +238,9 @@ void ZeroEncoders() {
   YLimiter.setPosition(0);
   XLimiter.resetTime();
   YLimiter.resetTime();
-  
 }
 
-void FDrivePower(int16_t power) {
+void FDrivePower(int16_t power) { //Front motor
   if (power == 0) { // don't move
     analogWrite(FrontMotorPWM, 0);
   } else if (power < 0) { // go left (-X < )
@@ -251,7 +254,7 @@ void FDrivePower(int16_t power) {
   }
 }
 
-void BDrivePower(int16_t power) {
+void BDrivePower(int16_t power) { //Back motor
   if (power == 0) { // don't move
     analogWrite(BackMotorPWM, 0);
   } else if (power < 0) { // go left (-X < )
@@ -265,7 +268,7 @@ void BDrivePower(int16_t power) {
   }
 }
 
-void YDrivePower(int16_t power) {
+void YDrivePower(int16_t power) { //Left and right motors
   if (power == 0) { // don't move
     analogWrite(SideMotorsPWM, 0);
   } else if (power < 0) { // go down (-Y ⌄)
@@ -279,27 +282,22 @@ void YDrivePower(int16_t power) {
   }
 }
 
-void SpinDrivePower(int16_t power) {
+void SpinDrivePower(int16_t power) { //Use front and back motors to spin
   if (power == 0) { // don't move
     analogWrite(FrontMotorPWM, 0);
     analogWrite(BackMotorPWM, 0);
   } else if (power < 0) { // spin CW
     digitalWrite(FrontMotorDIR, LOW);
     digitalWrite(BackMotorDIR, HIGH);
-//    digitalWrite(SideMotorsDIR, LOW);  //REMOVE SOMEDAY
     uint8_t pwmValue = power2PWM(abs(power));
     analogWrite(FrontMotorPWM, pwmValue);
     analogWrite(BackMotorPWM, pwmValue);
-//    analogWrite(SideMotorsPWM, pwmValue); //REMOVE SOMEDAY
   } else {  // spin CCW
     digitalWrite(FrontMotorDIR, HIGH);
     digitalWrite(BackMotorDIR, LOW);
-//    digitalWrite(SideMotorsDIR, HIGH); //REMOVE SOMEDAY
     uint8_t pwmValue = power2PWM(abs(power));
     analogWrite(FrontMotorPWM, pwmValue);
     analogWrite(BackMotorPWM, pwmValue);
-//    analogWrite(SideMotorsPWM, pwmValue); //REMOVE SOMEDAY
-
   }
 }
 void StopDrivePower(void) { // don't move
@@ -308,7 +306,7 @@ void StopDrivePower(void) { // don't move
   analogWrite(SideMotorsPWM, 0);
 }
 
-uint8_t power2PWM(uint8_t power) { // scaling function
+uint8_t power2PWM(uint8_t power) { // scaling function (incorporate battery voltage someday)
   if (power > MAX_Power) power = MAX_Power;
   uint8_t pwm = map(power, 0, MAX_Power, MIN_Power, MAX_Power);
   return pwm;
@@ -324,7 +322,7 @@ bool AccelPosition(int16_t Xtarget,int16_t Ytarget) {
   LPos = -bsed.getEncoderPositionWithoutOverflows(4);
   FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255)); 
   BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255));
-  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //add RPos average later
+  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //removed RPos average
   return (abs(FPos - Xtarget) < 7 && abs(BPos - Xtarget) < 7 && abs(LPos-Ytarget) < 7); //added Rpos
 }
 
@@ -335,19 +333,13 @@ bool WallAccelPosition(int16_t Xtarget,int16_t Ytarget) {
   LPos = -bsed.getEncoderPositionWithoutOverflows(4);
   FDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(FPos)),-255, 255)); 
   BDrivePower(constrain(Kp*((int16_t)XLimiter.calc(Xtarget)-(BPos)),-255, 255)); 
-  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //added RPos average
+  YDrivePower(constrain(Kp*((int16_t)YLimiter.calc(Ytarget)-(LPos)),-255, 255)); //removed RPos average
   return ((int16_t)XLimiter.calc(Xtarget) == Xtarget && (int16_t)YLimiter.calc(Ytarget) == Ytarget) && bsed.getEncoderVelocity(1) == 0 && bsed.getEncoderVelocity(2) == 0 && bsed.getEncoderVelocity(3) == 0 && bsed.getEncoderVelocity(4) == 0;
 }
 // ==============================
 // State Machine 
 // ==============================
 void runStateMachine() {
-  // static unsigned long state_start_time = 0;
-  // // Update encoder positions
-  // LPos = -bsed.getEncoderPositionWithoutOverflows(1);
-  // BPos = bsed.getEncoderPositionWithoutOverflows(2);
-  // RPos = bsed.getEncoderPositionWithoutOverflows(3);
-  // FPos = -bsed.getEncoderPositionWithoutOverflows(4);
 
   unsigned long currentTime = millis();
 
@@ -358,15 +350,16 @@ void runStateMachine() {
   Serial.println(elapsedTime);
 
   if(elapsedTime > 130000){ // Celebrate forced 
-    Serial.println("celebrating");
+//    Serial.println("celebrating");
     StopDrivePower();
-    activateFan(); // Activate celebration fan
+  //  activateFan(); // Activate celebration fan
     state = CELEBRATE;
   }
 
   switch (state) {
     case INIT:
       Serial.println("Starting init");
+      eyeOpen();
       state = ORIENT_NORTH;
       break;
 
@@ -457,7 +450,6 @@ void runStateMachine() {
         XLimiter.resetTime();
         YLimiter.resetTime();
         state = MOVE_RIGHT_BURNER;
-
       };
       break;
 
@@ -531,14 +523,14 @@ void runStateMachine() {
       break;
 
     case MOVE_OUT_PANTRY:
-     Serial.println("MOP");
+//     Serial.println("MOP");
       if (AccelPosition(0,14*31)) {
         state = MOVE_LEFT_WALL;
       }
       break;
 
     case MOVE_LEFT_WALL:
-     Serial.println("MLW");
+//     Serial.println("MLW");
       if (WallAccelPosition(-86*31,14*31)) {
         ZeroEncoders();
         state = POSITION_UNDER_BURNER;
@@ -546,7 +538,7 @@ void runStateMachine() {
       break;
 
     case POSITION_UNDER_BURNER:
-    Serial.println("PUB");
+//    Serial.println("PUB");
       if (AccelPosition(5*31,0)) {
         state = MOVE_TO_BURNER_WALL;
       }
@@ -566,6 +558,7 @@ void runStateMachine() {
       // positionReached = WallAccelPosition(xTarget, yTarget); 
       if (WallAccelPosition(83*31,0)) {
         StopDrivePower();
+        ITimer2.attachInterruptInterval(TIMER_INTERVAL_MS, eyeBlink);
         state = CELEBRATE;
       }
       break;
@@ -573,7 +566,6 @@ void runStateMachine() {
     case CELEBRATE:
     Serial.println("celebrating");
       StopDrivePower();
-      activateFan(); // Activate celebration fan
       break;
   }
 }
@@ -624,22 +616,21 @@ void setup() {
     
     // Other pins
     pinMode(LAUNCHER_MOTOR, OUTPUT);
-    pinMode(LAUNCHER_SENSOR, INPUT);
+    pinMode(LAUNCHER_SENSOR, INPUT_PULLUP);
     pinMode(LAUNCHER_LED, OUTPUT);
-    pinMode(IGNITER_PIN, OUTPUT);
-    pinMode(BALL_DROP_PIN, OUTPUT);
-    pinMode(EYE_PIN, OUTPUT);
+//    pinMode(IGNITER_PIN, OUTPUT);
+//    pinMode(BALL_DROP_PIN, OUTPUT);
+//    pinMode(EYE_PIN, OUTPUT);
     pinMode(START_BUTTON, INPUT_PULLUP);
 
     ballDropServo.attach(BALL_DROP_PIN);
     igniterServo.attach(IGNITER_PIN);    
-    // Initialize all outputs to LOW
-    StopDrivePower();
+    eyeServo.attach(EYE_PIN);   
+   // Initialize all outputs to LOW
     digitalWrite(LAUNCHER_MOTOR, LOW);
     digitalWrite(LAUNCHER_LED, LOW);
-    digitalWrite(IGNITER_PIN, LOW);
-    digitalWrite(BALL_DROP_PIN, LOW);
-    digitalWrite(EYE_PIN, LOW);
+//    digitalWrite(IGNITER_PIN, LOW);
+//    digitalWrite(BALL_DROP_PIN, LOW);
     
     // Initialize encoder control
     Wire.begin();  // Use default SDA and SCL pins
@@ -648,19 +639,23 @@ void setup() {
     bsed.setWhichEncoders(0b11110000); // encoder channels: 1,2,3,4
     
     // Zero the encoders at start
+    StopDrivePower();
     ZeroEncoders();
     
     //Servo setup
     igniterServo.write(IGNITER_RELEASED_POS);
     ballDropServo.write(BALL_DROP_CLOSED_POS);
+    eyeServo.write(EYE_CLOSED_POS);
+
+
     // Optional: Wait for start button press
     while (digitalRead(START_BUTTON) == HIGH) {
         // Wait for button press
         delay(10);
     }
-    Serial.println("setup complete");
+//    Serial.println("setup complete");
 
-    Serial.println("starting timer");
+//    Serial.println("starting timer");
     startTime = millis();
 }
 
