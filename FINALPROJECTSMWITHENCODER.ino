@@ -288,7 +288,6 @@ bool dropBall() {
 // Motor Control Functions
 // ==============================
 
-bool positionReached = false;
 void ZeroEncoders() {
   bsed.resetEncoderPositions(); 
   XLimiter.setPosition(0);
@@ -616,8 +615,6 @@ void runStateMachine() {
 
     case MOVE_POT_TO_CUSTOMER:
 //     Serial.println("MPC");
-      // moveRight(POS_MOVE_TO_CUSTOMER_X, POS_MOVE_TO_CUSTOMER_Y);
-      // positionReached = WallAccelPosition(xTarget, yTarget); 
       if (WallAccelPosition(83*31,0)) {
         StopDrivePower();
         fill_solid(leds, NUM_LEDS, CRGB::Purple);
