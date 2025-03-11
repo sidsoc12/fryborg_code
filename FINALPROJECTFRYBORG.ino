@@ -118,7 +118,7 @@ void orient(void) { //sets oriented to true when the outputs of the three ToF se
       oriented = true;
       break;
     }
-    SpinDrivePower(19); //spin slowly using front and back motors
+    SpinDrivePower(22); //spin slowly using front and back motors
   }
 }
 // ==============================
@@ -126,8 +126,8 @@ void orient(void) { //sets oriented to true when the outputs of the three ToF se
 // ==============================
 ByteSizedEncoderDecoder bsed = ByteSizedEncoderDecoder(&Wire, 0x0F);
 
-Derivs_Limiter YLimiter = Derivs_Limiter(40000, 1800, 1500); // speed, acceleration when increasing speed, acceleration when decreasing speed
-Derivs_Limiter XLimiter = Derivs_Limiter(40000, 1800, 1500); // speed, acceleration when increasing speed, acceleration when decreasing speed
+Derivs_Limiter YLimiter = Derivs_Limiter(4000, 1900, 1600); // speed, acceleration when increasing speed, acceleration when decreasing speed
+Derivs_Limiter XLimiter = Derivs_Limiter(4000, 1900, 1600); // speed, acceleration when increasing speed, acceleration when decreasing speed
 
 // ==============================
 // Servo Definitions and Constants
@@ -198,6 +198,7 @@ enum State {
   POSITION_UNDER_BURNER,
   MOVE_TO_BURNER_WALL,
   MOVE_POT_TO_CUSTOMER,
+  WAIT_TO_CELEBRATE,
   CELEBRATE
 };
 
@@ -384,6 +385,7 @@ void runStateMachine() {
   if(elapsedTime > 130000){ // 2:10 match ends - go celebrate 
 //    Serial.println("celebrating");
     StopDrivePower();
+    eyeServo.write(EYE_CLOSED_POS);
     fill_solid(leds, NUM_LEDS, CRGB::Purple);
     FastLED.show();
     ITimer2.attachInterruptInterval(TIMER_INTERVAL_MS, eyeBlink);
@@ -530,7 +532,7 @@ void runStateMachine() {
 //     Serial.println("MDW");
       if (WallAccelPosition(10,-21*31)) {
         StopDrivePower();
-        analogWrite(LAUNCHER_MOTOR, 25); //start it spinning
+        analogWrite(LAUNCHER_MOTOR, 19); //start it spinning
         fill_solid(leds, NUM_LEDS, CRGB::Yellow);
         FastLED.show();
         attachInterrupt(digitalPinToInterrupt(LAUNCHER_SENSOR), hallSensorISR, FALLING);   
@@ -540,7 +542,7 @@ void runStateMachine() {
 
     case LAUNCHING:
        updateLaunchControl();
-      if (elapsedTime >= 115000) { //leaving 10 seconds for rest of sequence and 5 second buffer
+      if (elapsedTime >= 117000) { //leaving 10 seconds for rest of sequence and 3 second buffer
         detachInterrupt(digitalPinToInterrupt(LAUNCHER_SENSOR));
         digitalWrite(LAUNCHER_MOTOR, LOW);
         fill_solid(leds, NUM_LEDS, CRGB::Red);
@@ -594,8 +596,12 @@ void runStateMachine() {
 //     Serial.println("MPC");
       if (WallAccelPosition(83*31,0)) {
         StopDrivePower();
+        state = WAIT_TO_CELEBRATE;
       }
       break;
+
+    case WAIT_TO_CELEBRATE:
+    break;
 
     case CELEBRATE:
 //    Serial.println("celebrating");
@@ -691,7 +697,6 @@ void setup() {
 void loop() {
     // Run encoder interface
     bsed.run();
-    
     // Run state machine
     runStateMachine();
 }
